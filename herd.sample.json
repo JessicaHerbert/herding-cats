@@ -1,0 +1,14 @@
+{
+  "days": {
+    "2026-09-01": [
+      {"emoji": "🐱", "breed": "tabby", "for": "Fixed the flaky test in the billing suite", "at": "09:12", "coat": "ginger", "rare": null, "name": "Tokie", "whiskers": true, "accessories": false},
+      {"emoji": "🐱", "breed": "tabby", "for": "Reviewed the API pagination PR", "at": "10:40", "coat": "cyan", "rare": null, "name": "Bogerald", "whiskers": true, "accessories": false},
+      {"emoji": "🐈", "breed": "shorthair", "for": "Wrote the migration runbook", "at": "14:05", "coat": "void", "rare": null, "name": "Phine", "whiskers": false, "accessories": false}
+    ],
+    "2026-09-02": [
+      {"emoji": "🐈", "breed": "shorthair", "for": "Shipped the search index rebuild", "at": "11:20", "coat": "slate", "rare": null, "name": "Alaxy", "whiskers": true, "accessories": true},
+      {"emoji": "🐈‍⬛", "breed": "void", "for": "Cleared the on-call backlog", "at": "16:30", "coat": "gold", "rare": "gold", "name": "Sir Digby Chicken Caesar", "whiskers": true, "accessories": false}
+    ]
+  },
+  "total": 5
+}

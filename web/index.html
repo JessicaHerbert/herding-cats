@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>herding cats</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="icon" href="/favicon.png">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+
+<header class="top">
+  <div>
+    <h1 id="date">&nbsp;</h1>
+    <div class="sub" id="sub">loading...</div>
+  </div>
+  <div class="topr">
+    <span class="clock" id="clock"></span>
+    <button id="refresh" class="refresh" title="Refresh (R)" aria-label="Refresh">
+      <svg viewBox="0 0 16 16" width="13" height="13" fill="none"
+           stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+        <path d="M13.6 6.5A5.8 5.8 0 1 0 14 9"/><path d="M13.9 2.6v4h-4"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<div class="tiles" id="tiles"></div>
+
+<main class="grid">
+  <section class="card wide">
+    <div class="ch"><span class="ct">The pile</span><span class="cc" id="pile-total"></span></div>
+    <div class="pile" id="pile"></div>
+    <div class="pilec" id="pilec"></div>
+  </section>
+
+  <section class="card">
+    <div class="ch"><span class="ct">Today</span><span class="cc" id="day-cc"></span></div>
+    <div id="timeline"></div>
+  </section>
+
+  <section class="card">
+    <div class="ch"><span class="ct">Tasks</span><span class="cc" id="task-cc"></span></div>
+    <div id="tasks"></div>
+  </section>
+
+  <section class="card">
+    <div class="ch"><span class="ct">Waiting on you</span><span class="cc" id="mail-cc"></span></div>
+    <div id="mail"></div>
+  </section>
+
+  <section class="card">
+    <div class="ch">
+      <span class="ct">Herd history</span>
+      <span class="cc"><a href="/history.html" data-open-page id="hist-cc"></a></span>
+    </div>
+    <div id="history"></div>
+  </section>
+
+  <section class="card">
+    <div class="ch"><span class="ct">Done</span><span class="cc" id="done-cc"></span></div>
+    <div id="done"></div>
+  </section>
+
+  <section class="card">
+    <div class="ch"><span class="ct">Watching</span><span class="cc" id="watch-cc"></span></div>
+    <div id="watch"></div>
+  </section>
+
+  <section class="card wide">
+    <div class="ch"><span class="ct">Documents</span><span class="cc" id="docs-cc"></span></div>
+    <div id="docs"></div>
+  </section>
+</main>
+
+<script src="/catsnacks.js"></script>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

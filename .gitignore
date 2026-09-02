@@ -1,0 +1,19 @@
+# The herd itself. Cat labels are real task text, which names customers,
+# partners, and colleagues. Never commit this.
+herd.json
+picks.json
+
+# Local state
+.venv/
+__pycache__/
+*.pyc
+server.log
+.remember/
+.cpa-workflow-artifacts/
+.playwright-mcp/
+
+# Scratch
+mockup*.html
+
+# Local config
+.env

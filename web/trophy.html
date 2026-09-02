@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cosmic Cat Participation Trophy</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --base01:#030B14;--base02:#051222;--base03:#07182D;
+  --cosmic:#B57BFF;--gold:#FFC94C;--cyan:#02E3FB;
+  --text:#EBF5FC;--gray:#8496AA;--slate:#252D41;
+  --font:'Inter',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--base01);display:grid;place-items:center;min-height:100vh;padding:40px;font-family:var(--font)}
+
+.card{width:620px;background:
+    radial-gradient(120% 90% at 50% -10%, rgba(181,123,255,.20), transparent 62%),
+    linear-gradient(170deg, #0A1930 0%, #05101F 55%, #030B14 100%);
+  border:1px solid rgba(181,123,255,.35);border-radius:20px;padding:44px 40px 34px;
+  text-align:center;position:relative;overflow:hidden;
+  box-shadow:0 24px 70px rgba(0,0,0,.6), 0 0 60px rgba(181,123,255,.14) inset}
+
+.eyebrow{font:600 10px/1 var(--font);letter-spacing:.22em;text-transform:uppercase;
+  color:var(--cosmic);margin-bottom:24px}
+
+.stage{position:relative;width:190px;height:190px;margin:0 auto 26px;display:grid;place-items:center}
+.halo{position:absolute;inset:0;border-radius:999px;
+  background:radial-gradient(circle, rgba(181,123,255,.42) 0%, rgba(181,123,255,.13) 45%, transparent 68%);
+  animation:breathe 3.4s ease-in-out infinite}
+.ring{position:absolute;inset:14px;border-radius:999px;border:1px solid rgba(181,123,255,.30)}
+.ring:nth-of-type(3){inset:2px;border-color:rgba(181,123,255,.16)}
+#cat{position:relative;z-index:2;filter:drop-shadow(0 0 16px rgba(181,123,255,.9)) drop-shadow(0 0 34px rgba(181,123,255,.5))}
+
+.star{position:absolute;border-radius:999px;
+  background:radial-gradient(circle,#fff 0%,var(--cosmic) 55%,transparent 72%);
+  animation:twinkle 2.4s ease-in-out infinite}
+
+h1{font:600 30px/36px var(--font);color:#fff;letter-spacing:-.01em;margin-bottom:9px}
+.sub{font:500 19px/26px var(--font);color:var(--text);margin:0 auto 4px}
+.part{font:400 14px/20px var(--font);color:var(--gray);margin-bottom:28px}
+.sub b{color:var(--text);font-weight:500}
+
+.cite{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+  border-radius:12px;padding:15px 18px;margin:0 auto 24px;max-width:440px;text-align:left}
+.citelab{font:600 9px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;
+  color:var(--cosmic);margin-bottom:7px}
+.cite ul{list-style:none;display:flex;flex-direction:column;gap:10px}
+.cite li{font:400 12.5px/19px var(--font);color:var(--gray);padding-left:16px;position:relative}
+.cite li::before{content:"✦";position:absolute;left:0;top:1px;color:var(--cosmic);font-size:9px}
+.cite li b{color:var(--text);font-weight:500}
+
+.odds{display:inline-flex;align-items:center;gap:9px;background:rgba(181,123,255,.10);
+  border:1px solid rgba(181,123,255,.30);border-radius:999px;padding:7px 15px;
+  font:600 11px/1 var(--font);letter-spacing:.06em;text-transform:uppercase;color:var(--cosmic);margin-bottom:28px}
+
+.foot{border-top:1px solid rgba(255,255,255,.07);padding-top:18px;
+  display:flex;justify-content:space-between;align-items:center;
+  font:400 11px/16px var(--font);color:var(--gray)}
+.foot b{color:var(--text);font-weight:500}
+.foot2{font:400 10px/15px var(--font);color:var(--gray);opacity:.75;padding-top:9px;text-align:center}
+.foot2 b{color:var(--gray);font-weight:500}
+
+@keyframes breathe{0%,100%{opacity:.7;transform:scale(.97)}50%{opacity:1;transform:scale(1.04)}}
+@keyframes twinkle{0%,100%{opacity:0;transform:scale(.3)}45%{opacity:1;transform:scale(1.3)}}
+@media (prefers-reduced-motion:reduce){.halo,.star{animation:none;opacity:.85}}
+</style>
+</head>
+<body>
+
+<div class="card" id="card">
+  <div class="eyebrow">Certificate of Participation</div>
+
+  <div class="stage">
+    <div class="halo"></div>
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <div id="cat"></div>
+  </div>
+
+  <h1>Cosmic Cat</h1>
+  <p class="sub"><b>Beau Gunderson</b></p>
+  <p class="part">participated</p>
+
+  <div class="odds">✦ 1 in 1,230 ✦</div>
+
+  <div class="foot">
+    <span>Awarded by <b>Jess Herbert</b></span>
+    <span id="date"></span>
+  </div>
+  <div class="foot2">Cats by <b>beaugunderson/cat-snacks</b></div>
+</div>
+
+<script src="/catsnacks.js"></script>
+<script type="module">
+import { drawCat } from "/cat.js";
+
+const COSMIC = { name: "cosmic", coat: "#B57BFF", eye: "#FFE86B", rare: "cosmic" };
+const c = drawCat(150, 424242, COSMIC);
+if (c) {
+  c.style.width = "150px";
+  c.style.height = "150px";
+  document.getElementById("cat").appendChild(c);
+}
+
+const stage = document.querySelector(".stage");
+const spots = [[14,26],[78,8],[150,34],[22,140],[164,128],[96,172],[6,84],[178,74]];
+for (const [x, y] of spots) {
+  const s = document.createElement("i");
+  s.className = "star";
+  const size = 3 + Math.round(Math.random() * 4);
+  s.style.cssText = `width:${size}px;height:${size}px;left:${x}px;top:${y}px;` +
+    `animation-delay:${(Math.random() * 2.4).toFixed(2)}s`;
+  stage.appendChild(s);
+}
+
+document.getElementById("date").textContent =
+  new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+</script>
+</body>
+</html>

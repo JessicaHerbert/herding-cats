@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The herd</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="icon" href="/favicon.png">
+<link rel="stylesheet" href="/app.css">
+<style>
+body{padding:22px 26px 60px}
+.back{display:inline-block;font:500 12px/1 var(--font);color:var(--gray);
+  text-decoration:none;margin-bottom:16px}
+.back:hover{color:var(--primary)}
+.hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.swatch{display:flex;align-items:center;gap:9px;padding:9px 11px;
+  background:var(--base02);border:1px solid var(--b1);border-radius:10px}
+.swatch.big{gap:11px;padding:10px 13px}
+.catslot{width:46px;height:46px;flex-shrink:0;display:grid;place-items:center}
+.catslot canvas{image-rendering:auto}
+.sbody{flex:1;display:flex;flex-direction:column;gap:1px}
+.srate{font:400 10.5px/14px var(--font);color:var(--gray)}
+.dotc{width:16px;height:16px;border-radius:999px;flex-shrink:0;
+  box-shadow:0 0 0 1px rgba(255,255,255,.09) inset}
+.sname{flex:1;font:500 12px/16px var(--font)}
+.scount{font:600 12px/16px var(--font);font-variant-numeric:tabular-nums}
+.spct{font:400 10.5px/14px var(--font);color:var(--gray)}
+.dayblock{margin-bottom:20px}
+.dayhead{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
+.dayname{font:600 13px/1 var(--font)}
+.daymeta{font:400 11.5px/1 var(--font);color:var(--gray)}
+.daycats{display:flex;flex-wrap:wrap;gap:4px}
+.dcatwrap{display:flex;flex-direction:column;align-items:center;width:56px;
+  padding:3px 0 4px;border-radius:9px;transition:background .12s}
+.dcatwrap:hover{background:var(--base03)}
+.dname{font:400 9.5px/12px var(--font);color:var(--gray);margin-top:1px;
+  max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dcat{width:44px;height:44px;display:grid;place-items:center;border-radius:9px;
+  cursor:default;transition:background .12s}
+.dcat:hover{background:var(--base03)}
+.dcat.rare{box-shadow:0 0 0 1px rgba(255,201,76,.4) inset;border-radius:9px}
+.chip{display:flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;
+  background:var(--base02);border:1px solid var(--b1);font:400 11px/15px var(--font)}
+.chip .dotc{width:10px;height:10px}
+.chip.rare{border-color:rgba(255,201,76,.45)}
+.chip .tt{color:var(--gray);font-size:10px}
+</style>
+</head>
+<body>
+
+<a class="back" href="/">&larr; back to today</a>
+<header class="top" style="margin-bottom:14px">
+  <div><h1 id="title">The herd</h1><div class="sub" id="sub">loading...</div></div>
+</header>
+
+<div class="tiles" id="tiles"></div>
+
+<main class="grid">
+  <section class="card wide">
+    <div class="ch"><span class="ct">Coats</span><span class="cc" id="coat-cc"></span></div>
+    <div class="hgrid" id="coats"></div>
+  </section>
+
+  <section class="card wide">
+    <div class="ch"><span class="ct">Traits</span><span class="cc">how often each shows up</span></div>
+    <div class="hgrid" id="traits"></div>
+  </section>
+
+  <section class="card wide">
+    <div class="ch"><span class="ct">Every day on record</span><span class="cc" id="days-cc"></span></div>
+    <div id="days"></div>
+  </section>
+</main>
+
+<script src="/catsnacks.js"></script>
+<script type="module" src="/history.js"></script>
+</body>
+</html>

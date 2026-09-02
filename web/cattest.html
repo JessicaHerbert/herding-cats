@@ -1,0 +1,11 @@
+<!doctype html><body style="background:#030B14">
+<div id="out"></div>
+<script src="/catsnacks.js"></script>
+<script>
+try {
+  const c = window.CatSnacks.cat(120, {});
+  document.body.appendChild(c);
+  document.title = "OK " + c.width + "x" + c.height;
+} catch (e) { document.title = "ERR " + e.message; }
+</script>
+</body>
