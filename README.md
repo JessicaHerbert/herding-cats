@@ -90,8 +90,20 @@ a parity test against every existing record before backfilling.
 ## The skill
 
 `skill/SKILL.md` is a [Claude Code](https://claude.com/claude-code) skill that
-opens the day: reads tasks and calendar, flags collisions, sweeps chat for
-commitments, and keeps a day file in markdown that the dashboard reads back.
+opens the day and catches you up on it. It reads tasks and calendar, flags
+collisions, and keeps a day file in markdown that the dashboard reads back.
+
+The part worth reading is the evidence sweep. Most finished work is not
+task-shaped: it is a message you posted, a page you published, a handoff you
+made. So the sweep looks at what you SENT rather than only what was sent to you,
+across Slack, mail, Notion, past agent sessions, and call recordings, then sorts
+every signal into completed-with-strong-evidence, completed-but-unproven,
+already-handled, or genuinely-waiting.
+
+Strong evidence gets logged without asking, because confirming twenty items one
+at a time is how a record stops being kept. Weak evidence asks first: a `from:me`
+mail search returns drafts, and a draft reply to a partner inquiry looks
+identical to a sent one until you check the label.
 
 The day file is written at the open and appended to as things happen. Two earlier
 attempts at the same idea wrote it at the end of the day and both died, because
