@@ -1724,18 +1724,55 @@ git commit -m "Add a first-run setup wizard that verifies before writing"
 
 ---
 
-### Task 12: README and language pass
+### Task 12: README, CLAUDE.md, and language pass
 
 **Files:**
 - Modify: `README.md`, `app/rollover.py:3`, `app/mail.py:1-8`, `app/picks.py:1-10`, `app/docs.py:38`, `app/docs.py:48`, `app/main.py:61`, `app/state.py:10`
+- Create: `CLAUDE.md`
 
 **Interfaces:**
 - Consumes: nothing
 - Produces: nothing
 
+The test for this task is whether someone can hand the repo to a fresh
+Claude Code session and have it work without asking questions. The current
+README fails that: it tells the reader to edit constants in `app/state.py`
+that Tasks 8 and 9 delete, and it links the `gws` CLI to a bare
+`https://github.com/` with no repo path.
+
 - [ ] **Step 1: Rewrite the README**
 
 Sections in this order: what it is, install, `python -m app.setup`, the three task providers and two mail providers in a table, config reference with every key from Task 3, where data lives, adding your own provider (the two protocols from Task 5), and last a clearly marked "Optional: the Claude Code skill" section stating it needs Claude Code, that it sweeps and judges rather than just wrapping the API, and that `skill/SKILL.md` is one person's real working copy rather than a template.
+
+Delete the two stale instructions: the "constants at the top of
+`app/state.py`" line near the top, and the "set `TASKLIST` and `TZ` in
+`app/state.py`" line under Running it. Both describe code that no longer
+exists. Replace the dead `gws` link with the real one, or say plainly that
+it is a personal CLI and name the Google provider's requirement instead.
+
+- [ ] **Step 1b: Write CLAUDE.md**
+
+An agent handed this repo reads `CLAUDE.md` first. Without one it has to
+infer the venv convention, the test command, and which files must never be
+committed. Cover, tersely:
+
+- What the app is, in two sentences, and the split between the standalone
+  dashboard and the optional skill
+- Layout: `app/` backend, `app/providers/` the backends, `web/` frontend,
+  `skill/` the optional Claude Code skill, `tests/` pytest
+- Commands: `uv sync`, `.venv/bin/pytest tests/`, and how to run the app.
+  State that `.venv/bin/python` is required because a bare `python3` lacks
+  the dependencies
+- Setup: `python -m app.setup` on first run, config at
+  `~/.herding-cats/config.toml`
+- Never commit: `herd.json`, `picks.json`, `.env`, `herd.backup-*.json`.
+  Say why, which is that cat labels are real task text naming real people,
+  and the repo is public
+- Adding a provider: implement the protocol in `app/providers/base.py`,
+  register it in `app/providers/__init__.py`, add it to the wizard's menu
+  in `app/setup.py`
+- The 6am day boundary and why it exists, since it is the single most
+  surprising behavior in the codebase
 
 - [ ] **Step 2: Neutralize the docstrings**
 
@@ -1748,11 +1785,33 @@ Run: `grep -rniE "\bjess\b|\bshe\b|\bher\b" app/` and confirm the only hits left
 Run: `.venv/bin/pytest tests/ -v && .venv/bin/python -c "import sys; sys.path.insert(0,'.'); import app.main; print('ok')"`
 Expected: tests pass and the import succeeds.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 4: Prove a stranger's clone works**
+
+Documentation that has not been followed is a guess. Simulate a fresh
+clone against the no-account provider, in a scratch directory outside the
+repo:
 
 ```bash
-git add README.md app/
-git commit -m "Document setup and providers, neutralize the app's voice"
+cd /tmp && rm -rf herding-cats-freshclone
+git clone /Users/jessicaherbert/tools-and-projects/rosie/herding-cats-app herding-cats-freshclone
+cd herding-cats-freshclone
+uv sync --group dev
+HERD_HOME=/tmp/fresh-herd .venv/bin/pytest tests/ -q
+```
+
+Then walk the README's own setup steps verbatim with `HERD_HOME` pointed
+at `/tmp/fresh-herd` and the `localfile` provider, and confirm the app
+serves a dashboard. Any step that required knowledge not in `README.md` or
+`CLAUDE.md` is a documentation bug: fix the docs, not the transcript.
+
+Clean up with `trash /tmp/herding-cats-freshclone /tmp/fresh-herd` when
+done. Note in the report which steps needed correcting.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add README.md CLAUDE.md app/
+git commit -m "Document setup and providers, add CLAUDE.md, neutralize the voice"
 ```
 
 ---
