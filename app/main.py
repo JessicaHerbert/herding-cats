@@ -6,7 +6,12 @@ from fastapi import FastAPI, WebSocket
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import cats, docs, mail, picks, rollover, state, watch
+from . import cats, docs, mail, picks, rollover, setup, state, watch
+
+if setup.needed():
+    raise SystemExit(
+        "No config yet. Run:  .venv/bin/python -m app.setup"
+    )
 
 app = FastAPI(title="herding cats")
 WEB = Path(__file__).parent.parent / "web"
