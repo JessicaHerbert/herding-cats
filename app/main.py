@@ -47,6 +47,11 @@ async def get_docs(days: int = 7):
 async def get_mail():
     """Separate from /api/state: this shells out per thread, so it belongs on
     the slow timer rather than the 60-second one."""
+    from . import providers
+
+    provider = providers.mail()
+    if provider is None:
+        return {"waiting": []}
     try:
         return {"waiting": await asyncio.to_thread(mail.waiting)}
     except Exception as exc:
