@@ -29,17 +29,23 @@ def find_old(repo_root: Path | None = None, old_daily: Path | None = None) -> di
     return found
 
 
-def _move_json(src: Path, dst: Path) -> int:
-    """Copy a JSON file, confirm it parses, then drop the original."""
+def _move_json(src: Path, dst: Path) -> tuple[bool, int]:
+    """Copy a JSON file, confirm it parses, then drop the original.
+
+    Returns whether the move happened and, for a herd, how many cats came
+    with it. Success is reported separately from the count, because a valid
+    picks file legitimately has no cats and would otherwise look like a
+    failed copy.
+    """
     try:
         parsed = json.loads(src.read_text())
     except json.JSONDecodeError:
-        return 0
+        return False, 0
     dst.write_text(json.dumps(parsed, indent=2))
     if json.loads(dst.read_text()) != parsed:
-        return 0
+        return False, 0
     src.unlink()
-    return sum(len(v) for v in parsed.get("days", {}).values())
+    return True, sum(len(v) for v in parsed.get("days", {}).values())
 
 
 def run(sources: dict) -> dict:
@@ -48,11 +54,11 @@ def run(sources: dict) -> dict:
     result = {"cats": 0, "picks": 0, "daily": 0}
 
     if "herd" in sources:
-        result["cats"] = _move_json(sources["herd"], paths.herd_file())
+        _, result["cats"] = _move_json(sources["herd"], paths.herd_file())
 
     if "picks" in sources and not paths.picks_file().exists():
-        moved = _move_json(sources["picks"], paths.picks_file())
-        result["picks"] = 1 if moved >= 0 and paths.picks_file().exists() else 0
+        moved, _ = _move_json(sources["picks"], paths.picks_file())
+        result["picks"] = 1 if moved else 0
 
     if "daily" in sources:
         for md in sorted(sources["daily"].glob("*.md")):

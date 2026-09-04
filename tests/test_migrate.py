@@ -50,3 +50,34 @@ def test_never_overwrites_existing(tmp_home, tmp_path):
     found = migrate.find_old(repo_root=tmp_path, old_daily=tmp_path / "nope")
     migrate.run(found)
     assert json.loads(paths.herd_file().read_text())["total"] == 99
+
+
+def test_a_valid_picks_file_is_reported_as_moved(tmp_home, tmp_path):
+    (tmp_path / "picks.json").write_text('{"2026-09-04": ["abc"]}')
+    found = migrate.find_old(repo_root=tmp_path, old_daily=tmp_path / "nope")
+    result = migrate.run(found)
+    assert result["picks"] == 1
+    assert json.loads(paths.picks_file().read_text()) == {"2026-09-04": ["abc"]}
+    assert not (tmp_path / "picks.json").exists()
+
+
+def test_a_failed_writeback_is_not_reported_as_moved(tmp_home, tmp_path, monkeypatch):
+    """The copy is written before it is verified, so a write that lands
+    corrupted still leaves a file at the destination. Success has to come
+    from the verification, not from the file merely existing."""
+    (tmp_path / "picks.json").write_text('{"2026-09-04": ["abc"]}')
+    destination = paths.picks_file()
+
+    real_write = migrate.Path.write_text
+
+    def corrupting_write(self, data, *a, **kw):
+        if self == destination:
+            return real_write(self, '{"tampered": true}', *a, **kw)
+        return real_write(self, data, *a, **kw)
+
+    monkeypatch.setattr(migrate.Path, "write_text", corrupting_write)
+    found = migrate.find_old(repo_root=tmp_path, old_daily=tmp_path / "nope")
+    result = migrate.run(found)
+
+    assert result["picks"] == 0
+    assert (tmp_path / "picks.json").exists()
