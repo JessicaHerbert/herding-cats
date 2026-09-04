@@ -127,7 +127,7 @@ provider are left out rather than written empty.
 
 ```toml
 [general]
-timezone = "America/Indiana/Indianapolis"
+timezone = "America/New_York"
 day_starts_at = 6
 
 [tasks]

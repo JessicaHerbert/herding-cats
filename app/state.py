@@ -8,12 +8,15 @@ from . import paths
 
 
 def tz() -> ZoneInfo:
+    """The configured zone.
+
+    config.reload() already refuses a zone that will not load, so there is
+    nothing left to swallow here. The previous fallback to UTC turned a
+    four-hour error in the day boundary into something silent.
+    """
     from . import config
 
-    try:
-        return ZoneInfo(config.load()["general"]["timezone"])
-    except Exception:
-        return ZoneInfo("UTC")
+    return ZoneInfo(config.load()["general"]["timezone"])
 
 
 def day_starts_at() -> int:

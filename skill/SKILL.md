@@ -37,7 +37,7 @@ Then seed the session todo list from what surfaced.
 
 ## Step 1: Tasks
 
-The list is your Google Tasks list. Get its ID with `gws tasks tasklists list` and put it in `app/state.py`.
+The list is whichever task list the app is configured against. The setup wizard (`python -m app.setup`) writes that choice to `~/.herding-cats/config.toml`, and for Google Tasks it lists your task lists so you can pick one.
 
 ```
 gws tasks tasks list \
@@ -192,7 +192,7 @@ The list is the point of the skill. Everything above is just how it gets populat
 
 ## Step 6: Open the day file
 
-Write `rosie/daily/YYYY-MM-DD.md` at the open, seeded from the sweep. One file per day.
+Write `~/.herding-cats/daily/YYYY-MM-DD.md` at the open, seeded from the sweep. One file per day. That location follows `HERD_HOME` if it is set.
 
 The file exists so Jess does not have to remember. Two previous attempts at this (`.eod-wraps/`, and a single file in `daily/`) both died because they were written at the end of the day, which is when there is the least appetite for writing anything. This one gets created at the open and appended to as the day goes, so there is nothing left to do at close-out.
 
@@ -251,7 +251,7 @@ For anything that did not get done, offer to reschedule rather than leaving it t
 
 ## Rules
 
-- **Never publish.** No Notion page, no Slack message, nothing anyone else can see. The one file this skill writes is the local day file in `rosie/daily/`, which is a private working record. If Jess wants something written up for other people, that is a separate confirmed step through whichever skill owns that output.
+- **Never publish.** No Notion page, no Slack message, nothing anyone else can see. The one file this skill writes is the local day file under `~/.herding-cats/daily/`, which is a private working record. If Jess wants something written up for other people, that is a separate confirmed step through whichever skill owns that output.
 - **Write the day file as you go.** Appending a decision the moment it lands takes one line. Reconstructing the day at 6pm is the thing that killed the last two attempts at this.
 - **Never batch-create tasks.** Discovered todos are suggestions until Jess says
   to capture them. Completions are the opposite: log strong evidence without
