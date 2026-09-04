@@ -52,12 +52,14 @@ have no calendar column.
 scratch data. Export it or put it inline on the single command, because a
 `HERD_HOME=x cmd1 | cmd2` prefix does not survive past the pipe.
 
-One prompt in the wizard needs care. It offers to move in data from an older
-layout, and `migrate.find_old()` looks at a hardcoded absolute path outside the
-repo as well as at the repo root, so it can offer to move a real herd even when
-you are running from a throwaway clone. The move deletes the originals after
-copying them. Answer `n` unless you are deliberately upgrading a install you
-recognize, and never answer it from a scripted or unattended run.
+One prompt in the wizard still needs care. It offers to move in data from an
+older layout, and the move deletes the originals once it has copied them. The
+day-file half of that is now scoped: `migrate.find_old()` offers the fixed
+path outside the repo only when `HERD_HOME` is at its default, so a throwaway
+clone pointed at scratch is not shown someone's real notes. The herd and picks
+files are still looked for beside the code, which is correct because they
+follow the clone. Answer `n` unless you are deliberately upgrading an install
+you recognize, and never answer it from a scripted or unattended run.
 
 ## Never commit
 
