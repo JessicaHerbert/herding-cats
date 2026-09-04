@@ -1793,7 +1793,7 @@ repo:
 
 ```bash
 cd /tmp && rm -rf herding-cats-freshclone
-git clone /Users/jessicaherbert/tools-and-projects/rosie/herding-cats-app herding-cats-freshclone
+git clone "$REPO" herding-cats-freshclone   # $REPO is this checkout
 cd herding-cats-freshclone
 uv sync --group dev
 HERD_HOME=/tmp/fresh-herd .venv/bin/pytest tests/ -q
