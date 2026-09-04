@@ -1,0 +1,52 @@
+import json
+
+from app import migrate, paths
+
+
+def test_finds_nothing_when_there_is_nothing(tmp_home, tmp_path):
+    assert migrate.find_old(repo_root=tmp_path, old_daily=tmp_path / "nope") == {}
+
+
+def test_finds_old_data(tmp_home, tmp_path):
+    (tmp_path / "herd.json").write_text('{"days": {}, "total": 0}')
+    old_daily = tmp_path / "daily"
+    old_daily.mkdir()
+    (old_daily / "2026-09-01.md").write_text("# day")
+    found = migrate.find_old(repo_root=tmp_path, old_daily=old_daily)
+    assert "herd" in found and "daily" in found
+
+
+def test_run_moves_and_verifies(tmp_home, tmp_path):
+    herd = {"days": {"2026-09-01": [{"for": "a"}, {"for": "b"}]}, "total": 2}
+    (tmp_path / "herd.json").write_text(json.dumps(herd))
+    old_daily = tmp_path / "daily"
+    old_daily.mkdir()
+    (old_daily / "2026-09-01.md").write_text("# day one")
+    (old_daily / "2026-09-02.md").write_text("# day two")
+
+    found = migrate.find_old(repo_root=tmp_path, old_daily=old_daily)
+    result = migrate.run(found)
+
+    assert result["cats"] == 2
+    assert result["daily"] == 2
+    moved = json.loads(paths.herd_file().read_text())
+    assert moved["total"] == 2
+    assert (paths.daily_dir() / "2026-09-02.md").read_text() == "# day two"
+    assert not (tmp_path / "herd.json").exists()
+
+
+def test_original_survives_a_bad_copy(tmp_home, tmp_path):
+    (tmp_path / "herd.json").write_text("{ not json")
+    found = migrate.find_old(repo_root=tmp_path, old_daily=tmp_path / "nope")
+    result = migrate.run(found)
+    assert result["cats"] == 0
+    assert (tmp_path / "herd.json").exists()
+
+
+def test_never_overwrites_existing(tmp_home, tmp_path):
+    paths.ensure()
+    paths.herd_file().write_text('{"days": {}, "total": 99}')
+    (tmp_path / "herd.json").write_text('{"days": {}, "total": 1}')
+    found = migrate.find_old(repo_root=tmp_path, old_daily=tmp_path / "nope")
+    migrate.run(found)
+    assert json.loads(paths.herd_file().read_text())["total"] == 99
