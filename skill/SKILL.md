@@ -1,6 +1,6 @@
 ---
 name: rosie:herding-cats
-description: Open the working day, or catch up on what has happened since the last look. Sweeps every system Jess works in - Google Tasks, calendar, Slack (what she sent, what mentions her, DMs), Gmail (sent, and threads awaiting her reply), Notion and local file edits, past Claude sessions, and Grain calls - then judges each signal: did she finish something, is someone still waiting, or is it already handled. Logs completions to the herding-cats dashboard so they earn a cat, and surfaces new todos for her to confirm. Use when Jess says "herding cats", "/rosie:herding-cats", "set up my day", "what's on today", "what did I get done", "what did I complete", "catch me up", "scratch pad", or opens a session intending to bounce between questions all day. Local only, never publishes anywhere. For the fuller external-meeting prep that publishes to Notion, use a fuller briefing skill instead.
+description: Open the working day, or catch up on what has happened since the last look. Sweeps every system Jess works in - Google Tasks, calendar, Slack (what she sent, what mentions her, DMs), Gmail (sent, and threads awaiting her reply), Notion and local file edits across every Claude session, a local activity tracker for work that left no artifact, and Grain calls - then judges each signal: did she finish something, is someone still waiting, or is it already handled. Logs completions to the herding-cats dashboard so they earn a cat, and surfaces new todos for her to confirm. Use when Jess says "herding cats", "/rosie:herding-cats", "set up my day", "what's on today", "what did I get done", "what did I complete", "catch me up", "scratch pad", or opens a session intending to bounce between questions all day. Local only, never publishes anywhere. For the fuller external-meeting prep that publishes to Notion, use a fuller briefing skill instead.
 ---
 
 # Herding Cats
@@ -95,9 +95,14 @@ Run these in parallel. Each one is a source of evidence, not a report.
 - `from:<@YOUR_SLACK_ID> after:<since>` across all channel types. This is the
   single highest-value query and the old version of this skill did not run it.
   A message she posted is usually a thing she did.
-- Sent mail: `gws gmail users messages list --params '{"userId":"me","q":"from:me after:YYYY/MM/DD"}'`.
-  **Check `labelIds` on every hit.** A draft carries her address as sender and
-  looks identical to a sent message in a `from:me` search. Only `SENT` counts.
+- Sent mail: `gws gmail users messages list --params '{"userId":"me","q":"in:sent after:YYYY/MM/DD"}'`.
+  **Use `in:sent`, never `from:me`.** A mail client that keeps a live draft in
+  Gmail while you compose (Superhuman does this) leaves drafts that carry your
+  address as sender, so `from:me` returns them looking exactly like sent
+  messages. `in:sent` excludes drafts at the query and saves a per-message `get`
+  on every hit. If a `from:me` search is ever used anyway, check `labelIds` on
+  every result and count only `SENT`, because a `DRAFT` label there means the
+  message never left.
 
 ### What is aimed at her
 
@@ -111,10 +116,31 @@ Run these in parallel. Each one is a source of evidence, not a report.
 ### What she touched
 
 - `GET /api/docs?days=1` on the dashboard covers Notion pages and local files
-  she edited, with an edit count and timestamp. Already built, previously unused.
+  she edited, with an edit count and timestamp. It reads the session
+  transcripts under `~/.claude/projects`, so it already spans EVERY Claude
+  session rather than the one you are in, and it catches files written through
+  Bash as well as through Edit and Write. Work done in another window shows up
+  here and nowhere else in this sweep.
 - `ccvault search "<term>" after:<date>` for what she worked on in other Claude
   sessions. Useful when work landed in a repo or a doc rather than a message.
 - Recent commits or PRs if a repo is in play: `gh search prs --author=@me`.
+- A local activity tracker, if one is running, is the only source that sees
+  work leaving no artifact at all. This setup uses one that writes SQLite to
+  `~/Library/Application Support/computer-usage/usage.db`; query `app_sessions`
+  for `app_name`, `window_title`, `browser_url`, and `keystroke_count` in the
+  window. Do not invoke its binary to query it, since that is the tracking
+  daemon and it will hang.
+
+  What it is FOR is the gap between effort and artifact. Heavy keystrokes in a
+  Slack channel with no message posted in that channel means something was
+  typed and abandoned in the composer, which is the same failure as an unsent
+  mail draft and just as invisible. One run caught 282 keystrokes across six
+  minutes in a channel that never produced a single message. Cross-check any
+  app with real input against what that app actually published before deciding
+  nothing happened.
+
+  Time-per-app is NOT evidence of a completed thing, so never log a cat from it
+  alone. It tells you where to go looking and what to ask about.
 
 ### Grain
 
@@ -135,10 +161,11 @@ the dashboard so it earns its cat: `POST /api/done {"text": "..."}` for work tha
 was never a task, or `POST /api/task/<id>/complete` for one that was.
 
 **Completed, weak evidence.** Ask before logging. Weak means the signal is
-consistent with the work being done but does not prove it: a draft email, a
+consistent with the work being done but does not prove it: an unsent draft, a
 thread she replied in without resolving, a doc edited but not shared, a branch
 pushed with no PR. A draft reply to a partner inquiry was once logged as a sent
-reply on exactly this mistake.
+reply on exactly this mistake. Drafts are the common case rather than the
+exception, since an abandoned one can sit for days looking like finished work.
 
 **Already handled.** Read the thread before surfacing an ask. On 2026-09-02, five
 of nine apparent asks were already answered by the time the sweep ran, and
@@ -233,9 +260,17 @@ For anything that did not get done, offer to reschedule rather than leaving it t
 - **Log through the dashboard, not the day file alone.** `POST /api/done` earns
   the cat and writes the day file in one call. Writing the file by hand skips
   the pile, which is the part she looks at.
-- **Verify before believing a signal.** A `from:me` mail search returns drafts.
-  A task can be completed on a phone. An ask in a thread may already be answered
-  three replies down. Read the artifact, not the notification.
+- **Verify before believing a signal.** A `from:me` mail search returns unsent
+  drafts alongside real sends, so query `in:sent` instead. A task can be
+  completed on a phone. An ask in a thread may already be answered three
+  replies down. Read the artifact, not the notification.
+- **A delta sweep still covers every source, just over a shorter window.**
+  Dropping sources rather than narrowing the window is what makes a re-run miss
+  things, and the two most often dropped are the ones that need it least:
+  `/api/docs` and the activity tracker are single calls and they are the only
+  view of work done in another window or another session. A re-run that checks
+  mail, Slack, and tasks alone will report a quiet hour that was not quiet.
+  This has already happened.
 - **Do not re-run the full sweep on every question.** Full sweep at the open,
   delta sweep on an explicit re-run, nothing on a passing question. Jess uses
   this as a scratch pad between meetings, so a ten-tool-call refresh every time

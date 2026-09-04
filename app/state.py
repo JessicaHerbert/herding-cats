@@ -218,8 +218,14 @@ def append_done(text: str) -> None:
         )
         return
     body = path.read_text()
-    marker = "## Decisions"
-    if marker in body:
+    # Anchor on whichever section comes FIRST after "On the list", not on
+    # "## Decisions" specifically. The file grew a "## Watching" section
+    # between the two, and anchoring on Decisions quietly filed every
+    # completion at the bottom of the watchlist instead.
+    markers = [m for m in ("## Watching", "## Decisions", "## Open threads",
+                           "## Notes", "## For Claude") if m in body]
+    marker = min(markers, key=body.index) if markers else ""
+    if marker:
         head, _, tail = body.partition(marker)
         path.write_text(f"{head.rstrip()}\n{line}\n{marker}{tail}")
     else:
@@ -268,6 +274,41 @@ def uncomplete_task(task_id: str) -> dict:
         "--params", json.dumps({"tasklist": TASKLIST, "task": task_id}),
         "--json", json.dumps({"status": "needsAction"}),
     ])
+
+
+def remove_done(text: str) -> bool:
+    """Take a completed line back out of the day file.
+
+    Undo used to only drop the cat from herd.json, but sync_day_file re-adds
+    any `- [x]` line on the next state read, so an undone item came straight
+    back. Matched loosely, since the line carries a timestamp the caller has
+    no reason to know.
+    """
+    import re
+
+    path = day_file_path()
+    if not path.exists():
+        return False
+
+    want = re.sub(r"[^a-z0-9 ]+", " ", (text or "").lower())
+    want = " ".join(w for w in want.split() if len(w) > 2)[:60]
+    if not want:
+        return False
+
+    kept, dropped = [], False
+    for line in path.read_text().splitlines():
+        m = re.match(r"^\s*-\s*\[x\]\s+(.+?)\s*$", line, re.I)
+        if m:
+            got = re.sub(r"[^a-z0-9 ]+", " ", m.group(1).lower())
+            got = " ".join(w for w in got.split() if len(w) > 2)[:60]
+            if got == want:
+                dropped = True
+                continue
+        kept.append(line)
+
+    if dropped:
+        path.write_text("\n".join(kept) + "\n")
+    return dropped
 
 
 def complete_task(task_id: str) -> dict:

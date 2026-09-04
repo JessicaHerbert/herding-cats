@@ -6,12 +6,18 @@ triggers a tool call or costs tokens in the background.
 Expected shape in the day file:
 
     ## Watching
-    - [PLUGIN-377](https://...) missing Request Source | 23:12 | still open
-    - Marketing Slack app | 12:48 | still firing
-    - GoLive decision | waiting on Alexia
+    - [ABC-123](https://...) missing a required field | 23:12 | still open
+    - Nightly sync job | 12:48 | still failing
+    - Go-live decision | waiting on the owner
 
 The pipe-delimited fields after the label are optional: the second is when it
 was last checked, the third is what was found.
+
+Examples here are deliberately fake. An earlier version used a real ticket
+that had genuinely been missing a field, the field was filled the next day,
+and the docstring then read as a live watchlist entry asserting something
+untrue. A watchlist line is a claim about current state, so it has to be
+verified at the moment it is written; a frozen example can never be.
 """
 
 import re

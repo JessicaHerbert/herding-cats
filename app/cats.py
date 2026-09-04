@@ -61,6 +61,23 @@ def _breed(total: int) -> tuple[str, str]:
     return BREEDS[min(total // 4, len(BREEDS) - 1)]
 
 
+def _recent_keys(data: dict, today: str, back: int = 14) -> set:
+    """Cat keys already awarded on the days just before today.
+
+    Dedup used to be scoped to the current day only, so anything that leaked
+    across the 6am boundary earned a second cat for work already counted.
+    """
+    from datetime import datetime, timedelta
+
+    day = datetime.strptime(today, "%Y-%m-%d")
+    keys = set()
+    for n in range(1, back + 1):
+        prior = (day - timedelta(days=n)).strftime("%Y-%m-%d")
+        for c in data["days"].get(prior, []):
+            keys.add(_key(c["for"]))
+    return keys
+
+
 def sync_day_file() -> dict:
     """Award a cat for every checked item in today's day file.
 
@@ -73,7 +90,7 @@ def sync_day_file() -> dict:
     data = _load()
     today = state.working_day()
     day = data["days"].setdefault(today, [])
-    seen = {_key(c["for"]) for c in day}
+    seen = {_key(c["for"]) for c in day} | _recent_keys(data, today)
 
     body = state.day_file()
     if not body:
@@ -205,9 +222,21 @@ def unearn(task_title: str) -> dict:
         if _key(day[i]["for"]) == want:
             day.pop(i)
             data["total"] = max(0, data["total"] - 1)
+            # Removing from the middle shifts every later cat back one, and the
+            # every-tenth gold is positional, so the stored coats no longer
+            # match where the cats sit. Re-derive the tail.
+            for pos in range(i, len(day)):
+                coat = coats.for_position(pos, day[pos]["for"])
+                day[pos]["coat"] = coat["name"]
+                day[pos]["rare"] = coat.get("rare")
+                day[pos]["name"] = names.for_cat(
+                    day[pos]["for"], coat.get("rare"), coats.hash_text(day[pos]["for"])
+                )
             if not day:
                 data["days"].pop(today, None)
             _save(data)
+            # Also drop the day-file line, or sync_day_file puts the cat back.
+            state.remove_done(task_title)
             return {"removed": True, "today": len(day), "total": data["total"]}
 
     return {"removed": False, "today": len(day), "total": data["total"]}
@@ -224,7 +253,9 @@ def history(limit: int = 30) -> dict:
     coat_tally: dict[str, int] = {}
     rare_tally: dict[str, int] = {}
     breed_tally: dict[str, int] = {}
-    trait_tally = {"whiskers": 0, "accessories": 0}
+    trait_tally = {k: 0 for k in
+                   ("whiskers", "accessories", "head", "droop",
+                    "bigEyes", "bigEars", "tabby", "pixel")}
 
     for day in sorted(data["days"], reverse=True):
         cats = data["days"][day]
@@ -235,7 +266,9 @@ def history(limit: int = 30) -> dict:
                 rare_tally[c["rare"]] = rare_tally.get(c["rare"], 0) + 1
             breed_tally[c["breed"]] = breed_tally.get(c["breed"], 0) + 1
             for t in trait_tally:
-                if c.get(t):
+                # `head` is a string; the countable case is the rarer shape.
+                got = c.get(t)
+                if (got == "triangular") if t == "head" else bool(got):
                     trait_tally[t] += 1
         days.append({
             "day": day,

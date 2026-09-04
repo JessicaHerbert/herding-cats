@@ -61,15 +61,30 @@ def _roll_special(seed: int) -> dict | None:
 
 
 def traits_for(text: str) -> dict:
-    """Whiskers and accessories, mirroring the rules in cat.js drawCat.
+    """Every visible trait a cat carries, stored rather than recomputed.
 
-    These were render-time only, exactly like the coat was, so a cat with
-    glasses left no record of it. Stored now so the tally means something.
+    Colour alone made every cat read as the same animal in a different shade.
+    The generator already varies head shape, ears, eyes, and stripes; these
+    just pick from its own documented ranges so the differences are legible
+    and countable.
+
+    Each trait takes its own slice of the seed, so they vary independently
+    rather than all flipping together.
     """
     seed = hash_text(text)
     return {
         "whiskers": seed % 3 != 0,
         "accessories": seed % 9 == 0,
+        # HEAD_SHAPES in cat-snacks is exactly ['ellipse', 'triangular'].
+        "head": "triangular" if (seed // 7) % 4 == 0 else "ellipse",
+        "droop": (seed // 11) % 5 == 0,
+        "bigEyes": (seed // 13) % 6 == 0,
+        # earFactor ranges 0.9-1.15 upstream; 1.15 is the visible end of it.
+        "bigEars": (seed // 17) % 7 == 0,
+        # tabbyFactor ranges 0.9-1.2.
+        "tabby": (seed // 19) % 5 == 0,
+        # The rarest of the shape traits, and the most visually distinct.
+        "pixel": (seed // 23) % 40 == 0,
     }
 
 
