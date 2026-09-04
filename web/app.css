@@ -17,10 +17,12 @@ h1{font:500 22px/28px var(--font);color:var(--text2);letter-spacing:-.01em}
 .sub{font:400 12px/18px var(--font);color:var(--gray);margin-top:2px}
 .topr{display:flex;align-items:center;gap:10px}
 .clock{font:500 12px/1 var(--font);color:var(--gray);font-variant-numeric:tabular-nums}
-.refresh{background:var(--base03);border:1px solid var(--b2);border-radius:7px;
-  width:29px;height:29px;display:grid;place-items:center;color:var(--gray);cursor:pointer}
-.refresh:hover{color:var(--text2);border-color:var(--b3)}
-.refresh:focus-visible{outline:none;box-shadow:0 0 0 2px var(--base01),0 0 0 4px var(--primary)}
+.refresh,#log-done,#add-task{background:var(--base03);border:1px solid var(--b2);border-radius:7px;
+  color:var(--gray);cursor:pointer}
+.refresh{width:29px;height:29px;display:grid;place-items:center}
+#log-done,#add-task{font:500 12px/1 var(--font);padding:0 10px;height:29px}
+.refresh:hover,#log-done:hover,#add-task:hover{color:var(--text2);border-color:var(--b3)}
+.refresh:focus-visible,#log-done:focus-visible,#add-task:focus-visible{outline:none;box-shadow:0 0 0 2px var(--base01),0 0 0 4px var(--primary)}
 .refresh.spin svg{animation:spin .7s linear}
 @keyframes spin{to{transform:rotate(360deg)}}
 

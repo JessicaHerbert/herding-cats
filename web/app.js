@@ -566,6 +566,20 @@ $("mute")?.addEventListener("click", () => {
 });
 paintMute();
 
+$("log-done")?.addEventListener("click", async () => {
+  const text = prompt("What did you finish?");
+  if (!text || !text.trim()) return;
+  await post("/api/done", { text: text.trim() });
+  $("refresh").click();
+});
+
+$("add-task")?.addEventListener("click", async () => {
+  const title = prompt("What needs doing?");
+  if (!title || !title.trim()) return;
+  await post("/api/task", { title: title.trim() });
+  $("refresh").click();
+});
+
 refresh();
 loadDocs();
 loadMail();
