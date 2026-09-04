@@ -12,22 +12,26 @@ which of them Jess pulled forward this morning.
 import json
 from pathlib import Path
 
-from . import state
+from . import paths, state
 
-PICKS = Path(__file__).parent.parent / "picks.json"
+
+def _picks_file() -> Path:
+    """Resolved per call, for the same reason as the herd file."""
+    return paths.picks_file()
 
 
 def _load() -> dict:
-    if not PICKS.exists():
+    if not _picks_file().exists():
         return {}
     try:
-        return json.loads(PICKS.read_text())
+        return json.loads(_picks_file().read_text())
     except json.JSONDecodeError:
         return {}
 
 
 def _save(data: dict) -> None:
-    PICKS.write_text(json.dumps(data, indent=2) + "\n")
+    paths.ensure()
+    _picks_file().write_text(json.dumps(data, indent=2) + "\n")
 
 
 def today() -> set[str]:

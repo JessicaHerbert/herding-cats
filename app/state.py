@@ -52,7 +52,15 @@ def calendar() -> dict:
 
 
 def day_file_path(date: str | None = None) -> Path:
-    return paths.daily_dir() / f"{date or working_day()}.md"
+    """The day file, with its directory guaranteed to exist.
+
+    Callers write to this path directly in nine places. Creating the parent
+    here covers all of them, where a fresh HERD_HOME otherwise fails on the
+    first append with a bare FileNotFoundError.
+    """
+    daily = paths.daily_dir()
+    daily.mkdir(parents=True, exist_ok=True)
+    return daily / f"{date or working_day()}.md"
 
 
 def day_file() -> str:

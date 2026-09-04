@@ -3,9 +3,16 @@
 import json
 from pathlib import Path
 
-from . import coats, names, state
+from . import coats, names, paths, state
 
-HERD = Path(__file__).parent.parent / "herd.json"
+
+def _herd_file() -> Path:
+    """Resolved per call, not at import.
+
+    As a module constant this pointed at the repo root whatever HERD_HOME
+    said, so a test instance wrote its cats into the real herd.
+    """
+    return paths.herd_file()
 
 # Rarer cats sit further down the list. Index = how many cats you had when
 # this one was earned, so the herd visibly changes character as it grows.
@@ -44,16 +51,17 @@ def _key(title: str) -> str:
 
 
 def _load() -> dict:
-    if not HERD.exists():
+    if not _herd_file().exists():
         return {"days": {}, "total": 0}
     try:
-        return json.loads(HERD.read_text())
+        return json.loads(_herd_file().read_text())
     except json.JSONDecodeError:
         return {"days": {}, "total": 0}
 
 
 def _save(data: dict) -> None:
-    HERD.write_text(json.dumps(data, indent=2))
+    paths.ensure()
+    _herd_file().write_text(json.dumps(data, indent=2))
 
 
 def _breed(total: int) -> tuple[str, str]:
