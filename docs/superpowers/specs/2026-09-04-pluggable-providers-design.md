@@ -25,7 +25,30 @@ bring history along.
 
 Someone who clones the repo can run it against their own task manager
 and mail, on their own schedule, without editing source. Existing data
-migrates rather than being abandoned.
+migrates rather than being abandoned. The dashboard is fully usable
+without the Claude Code skill.
+
+## The skill is not a wrapper
+
+Worth stating plainly, because it changes what "portable" means here.
+The repo is two products: a dashboard that stands on its own, and an
+optional agent integration layered on top.
+
+The skill sweeps Slack, Gmail, Notion, and call recordings, then judges
+whether each signal is a completion, something still owed, or already
+handled. No provider abstraction substitutes for that, and it requires
+Claude Code, which most people cloning a cat app will not have.
+
+Two endpoints currently have no UI at all, because the skill is what
+calls them:
+
+- `POST /api/done`, which logs work that was never a task and earns a
+  cat. This is the core loop, so without a UI the app is broken for
+  anyone skill-less.
+- `POST /api/task`, which creates a task.
+
+Both are addressed below. Everything else the dashboard needs already
+has UI: completing, picking, undoing, and notes.
 
 ## Non-goals
 
@@ -165,16 +188,40 @@ original intact.
 Every credential prompt verifies before persisting, so a typo surfaces
 at setup rather than as an empty dashboard later.
 
+### Standalone UI
+
+Two small additions to `web/`, both against endpoints that already
+exist and are exercised by the skill, so no backend change is needed.
+
+- **Log something done.** An input that posts `{"text": ...}` to
+  `/api/done` and earns a cat on submit. This is the path that records
+  work which was never a task, and it is the reason the app exists.
+- **Add a task.** An input that posts `{"title": ...}` to `/api/task`,
+  routed through the configured task provider.
+
+Both follow the existing UI idiom: delegated click handlers and a
+prompt-style entry, matching how notes already work, rather than
+introducing a new form system for two fields.
+
+The `localfile` provider makes the add-task path meaningful without any
+account, so the two features land together.
+
 ### Portability of language
 
-`skill/SKILL.md` and several module docstrings are written about one
-person by name. The skill doc stays personal, since it is that person's
-Claude skill rather than app documentation, but it moves to
-`skill/` being clearly labeled as an example integration.
+`skill/SKILL.md` is written about one person by name, and it references
+a specific Slack, Notion, and Grain setup. It stays as it is, in that
+voice, presented as a real working example rather than a template.
+Genericizing it would produce mostly placeholders and lose the thing
+that makes it worth reading.
+
+`README.md` leads with the standalone app: setup, providers, and how to
+add your own. The skill gets its own clearly marked section as an
+optional Claude Code integration, stating up front that it needs Claude
+Code and describing what it adds, so nobody mistakes it for a
+requirement.
 
 Module docstrings and comments in `app/` change to second person or
-neutral phrasing. `README.md` gains setup, provider, and
-add-your-own-provider sections.
+neutral phrasing.
 
 ## Testing
 
@@ -190,6 +237,9 @@ add-your-own-provider sections.
 - Migration: fixture with old-layout data, assert cat count and daily
   file count survive, assert originals removed only after verification.
 - The existing duplicate-cat regression keeps running.
+- Skill-less path: with `localfile` configured and no skill present,
+  logging done work earns a cat and adding a task appears in the list.
+  This is the check that the app stands alone.
 
 ## Sequencing
 
@@ -203,8 +253,9 @@ Each step leaves the app working:
 4. `localfile` provider, which proves the seam
 5. `todoist` provider
 6. Timezone and `day_starts_at` become config reads
-7. Setup wizard
-8. README and docstring pass
+7. Standalone UI for logging done work and adding a task
+8. Setup wizard
+9. README and docstring pass
 
 ## Risks
 
