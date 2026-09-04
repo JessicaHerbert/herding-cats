@@ -7,6 +7,7 @@ project, and it survives a file being moved afterwards.
 
 import json
 import os
+import re
 from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -17,8 +18,24 @@ PROJECTS = Path.home() / ".claude" / "projects"
 WRITE_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
 NOTION_TOOLS = {"mcp__notion__notion-update-page", "mcp__notion__notion-create-pages"}
 
+# Under auto mode most files are written through Bash rather than Edit/Write,
+# so a transcript can show a full day of work and no write-tool calls at all.
+# These patterns pick the target back out of the command text. Each one must
+# capture the path in group 1.
+BASH_WRITE = (
+    re.compile(r""">>?\s*['"]?(/[^\s'"|;&>]+)"""),           # cmd > /path, >> /path
+    re.compile(r"""\b(?:tee)\s+(?:-a\s+)?['"]?(/[^\s'"|;&]+)"""),
+    # sed -i: the LAST absolute path on the line is the target, since the
+    # substitution expression itself is full of slashes and matches first.
+    re.compile(r"""\bsed\s+(?=[^|;&]*-i\b)[^|;&]*\s['"]?(/[^\s'"|;&]+)\s*(?:$|[|;&])"""),
+    re.compile(r"""\b(?:cp|mv)\s+[^|;&]*?\s['"]?(/[^\s'"|;&]+)\s*(?:$|[|;&])"""),
+    # A heredoc'd python/script writes through open(...,'w'); the path is in
+    # the body rather than the command, so match the open call directly.
+    re.compile(r"""open\(\s*['"](/[^'"]+)['"]\s*,\s*['"][wa]"""),
+)
+
 # Noise: transient files and machinery that are not "documents" in any sense
-# Jess would recognize.
+# a person would recognize.
 SKIP_PARTS = (
     "/.claude/projects/", "/node_modules/", "/.venv/", "/site-packages/",
     "/tool-results/", "/.remember/", "/__pycache__/", "/.git/",
@@ -28,7 +45,7 @@ SKIP_PREFIX = ("/tmp/", "/private/tmp/", "/var/folders/")
 
 
 # Documents are things with prose or data in them, not source code. A .py file
-# is work, but it is not a document Jess would go looking for later.
+# is work, but it is not a document anyone goes looking for later.
 CONTENT_EXT = {".md", ".markdown", ".csv", ".tsv", ".html", ".htm", ".pdf",
                ".txt", ".docx", ".xlsx", ".json"}
 
@@ -61,6 +78,30 @@ def _interesting(path: str) -> bool:
     return True
 
 
+def _bash_targets(command: str) -> list[str]:
+    """Absolute paths a Bash command appears to write to.
+
+    Deliberately conservative and absolute-only: a relative path cannot be
+    resolved without knowing the shell's cwd at the time, and guessing wrong
+    invents a document that was never touched. `_interesting` still filters
+    whatever comes back, so a read-only match on a `.md` path is the worst
+    case and it shows up as one spurious edit rather than a wrong file.
+    """
+    if not command:
+        return []
+    # A command that only exercises the parser (a test harness importing this
+    # module) would otherwise register its fixture paths as real documents.
+    if "_bash_targets" in command:
+        return []
+    hits: list[str] = []
+    for pattern in BASH_WRITE:
+        for match in pattern.finditer(command):
+            path = match.group(1)
+            if path not in hits:
+                hits.append(path)
+    return hits
+
+
 def _project_label(session_file: Path) -> str:
     """Turn the encoded directory name back into something readable."""
     raw = session_file.parent.name.lstrip("-").replace("-", "/")
@@ -75,7 +116,7 @@ def touched(days: int = 7, limit: int = 40) -> dict:
     if not PROJECTS.exists():
         return {"docs": [], "days": days, "sessions": 0}
 
-    cutoff = (datetime.now(state.TZ) - timedelta(days=days)).timestamp()
+    cutoff = (datetime.now(state.tz()) - timedelta(days=days)).timestamp()
     found: dict[str, dict] = {}
     notion: dict[str, dict] = {}
     scanned = 0
@@ -110,22 +151,26 @@ def touched(days: int = 7, limit: int = 40) -> dict:
                     name = block.get("name", "")
                     args = block.get("input") or {}
 
-                    if name in WRITE_TOOLS:
-                        path = args.get("file_path", "")
-                        if not _interesting(path):
-                            continue
-                        entry = found.setdefault(path, {
-                            "path": path,
-                            "name": os.path.basename(path),
-                            "project": project,
-                            "edits": 0,
-                            "last": "",
-                            "kind": "file",
-                        })
-                        entry["edits"] += 1
-                        if when > entry["last"]:
-                            entry["last"] = when
-                            entry["project"] = project
+                    if name in WRITE_TOOLS or name == "Bash":
+                        if name == "Bash":
+                            paths = _bash_targets(args.get("command", ""))
+                        else:
+                            paths = [args.get("file_path", "")]
+                        for path in paths:
+                            if not _interesting(path):
+                                continue
+                            entry = found.setdefault(path, {
+                                "path": path,
+                                "name": os.path.basename(path),
+                                "project": project,
+                                "edits": 0,
+                                "last": "",
+                                "kind": "file",
+                            })
+                            entry["edits"] += 1
+                            if when > entry["last"]:
+                                entry["last"] = when
+                                entry["project"] = project
 
                     elif name in NOTION_TOOLS:
                         page, title = _notion_ref(args)
@@ -206,10 +251,10 @@ def _relative(iso: str) -> str:
     if not iso:
         return ""
     try:
-        when = datetime.fromisoformat(iso.replace("Z", "+00:00")).astimezone(state.TZ)
+        when = datetime.fromisoformat(iso.replace("Z", "+00:00")).astimezone(state.tz())
     except ValueError:
         return ""
-    now = datetime.now(state.TZ)
+    now = datetime.now(state.tz())
     delta = now - when
     if delta < timedelta(minutes=2):
         return "just now"
@@ -227,6 +272,6 @@ def _relative(iso: str) -> str:
 
 
 def _working_day_of(when: datetime) -> str:
-    if when.hour < state.DAY_STARTS_AT:
+    if when.hour < state.day_starts_at():
         when -= timedelta(days=1)
     return when.strftime("%Y-%m-%d")

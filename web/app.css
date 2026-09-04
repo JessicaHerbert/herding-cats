@@ -17,10 +17,12 @@ h1{font:500 22px/28px var(--font);color:var(--text2);letter-spacing:-.01em}
 .sub{font:400 12px/18px var(--font);color:var(--gray);margin-top:2px}
 .topr{display:flex;align-items:center;gap:10px}
 .clock{font:500 12px/1 var(--font);color:var(--gray);font-variant-numeric:tabular-nums}
-.refresh{background:var(--base03);border:1px solid var(--b2);border-radius:7px;
-  width:29px;height:29px;display:grid;place-items:center;color:var(--gray);cursor:pointer}
-.refresh:hover{color:var(--text2);border-color:var(--b3)}
-.refresh:focus-visible{outline:none;box-shadow:0 0 0 2px var(--base01),0 0 0 4px var(--primary)}
+.refresh,#log-done,#add-task{background:var(--base03);border:1px solid var(--b2);border-radius:7px;
+  color:var(--gray);cursor:pointer}
+.refresh{width:29px;height:29px;display:grid;place-items:center}
+#log-done,#add-task{font:500 12px/1 var(--font);padding:0 10px;height:29px}
+.refresh:hover,#log-done:hover,#add-task:hover{color:var(--text2);border-color:var(--b3)}
+.refresh:focus-visible,#log-done:focus-visible,#add-task:focus-visible{outline:none;box-shadow:0 0 0 2px var(--base01),0 0 0 4px var(--primary)}
 .refresh.spin svg{animation:spin .7s linear}
 @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -267,3 +269,48 @@ h1{font:500 22px/28px var(--font);color:var(--text2);letter-spacing:-.01em}
 .rtag.emerald{background:rgba(31,217,140,.14);color:#1FD98C}
 .rtag.cosmic{background:rgba(181,123,255,.16);color:#B57BFF}
 .cname{color:var(--gray);font-size:10.5px;margin-left:7px}
+#hist-cc{color:var(--primary);text-decoration:none}
+#hist-cc:hover{text-decoration:underline}
+
+/* ---- rare cat celebration ---------------------------------------------
+   Fires when a rose, emerald, or cosmic cat ARRIVES, not on every render.
+   Gold is deliberately excluded: every tenth cat is gold by design, so it
+   lands several times a day and a celebration that frequent stops reading
+   as one. */
+.fw{position:fixed;inset:0;pointer-events:none;z-index:60;overflow:hidden}
+.fw-p{position:absolute;width:6px;height:6px;border-radius:50%;
+  background:rgb(var(--glow,255,201,76));
+  box-shadow:0 0 8px 2px rgba(var(--glow,255,201,76),.7);
+  animation:fw-fly var(--dur,1400ms) cubic-bezier(.15,.6,.3,1) forwards}
+@keyframes fw-fly{
+  0%{transform:translate(0,0) scale(1);opacity:1}
+  70%{opacity:1}
+  100%{transform:translate(var(--dx),var(--dy)) scale(.3);opacity:0}
+}
+
+.fw-banner{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%) scale(.85);
+  z-index:61;pointer-events:none;text-align:center;
+  padding:18px 30px;border-radius:14px;
+  background:rgba(12,12,14,.92);border:1px solid rgba(var(--glow),.6);
+  box-shadow:0 0 30px rgba(var(--glow),.45),0 8px 40px rgba(0,0,0,.6);
+  animation:fw-pop 2600ms ease forwards}
+.fw-banner b{display:block;font-size:20px;letter-spacing:.4px;
+  color:rgb(var(--glow));margin-bottom:3px}
+.fw-banner span{display:block;font-size:13px;color:var(--text2)}
+@keyframes fw-pop{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.85)}
+  8%{opacity:1;transform:translate(-50%,-50%) scale(1.04)}
+  14%{transform:translate(-50%,-50%) scale(1)}
+  82%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-58%) scale(.97)}
+}
+
+@media (prefers-reduced-motion: reduce){
+  .fw{display:none}
+  .fw-banner{animation:fw-pop-still 2600ms ease forwards}
+  @keyframes fw-pop-still{0%{opacity:0}6%{opacity:1}85%{opacity:1}100%{opacity:0}}
+}
+
+.mute{background:none;border:0;cursor:pointer;color:var(--b3);
+  font-size:13px;padding:0 4px;line-height:1}
+.mute:hover{color:var(--text2)}

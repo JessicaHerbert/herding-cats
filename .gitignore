@@ -8,6 +8,7 @@ picks.json
 __pycache__/
 *.pyc
 server.log
+window.log
 .remember/
 .cpa-workflow-artifacts/
 .playwright-mcp/
@@ -17,3 +18,9 @@ mockup*.html
 
 # Local config
 .env
+
+# Backups of the herd, same reasoning as herd.json above.
+herd.backup-*.json
+
+# Subagent-driven development scratch.
+.superpowers/

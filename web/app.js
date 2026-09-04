@@ -91,6 +91,121 @@ const tile = (value, label, tone) => `<div class="tile ${tone}">
 
 const CAT_SIZE = 52;
 
+// Traits worth naming on hover, with the odds each one fires at. Read from
+// the stored cat rather than recomputed, so the tooltip cannot drift from the
+// picture the way a second seed calculation would.
+//
+// whiskers is deliberately absent: it fires 2 in 3, so it is the default
+// rather than a feature. Anything listed here is at most 1 in 4.
+const NOTABLE = [
+  ["pixel", "pixel"],           // 1 in 40
+  ["accessories", "accessorized"], // 1 in 9
+  ["bigEars", "big ears"],      // 1 in 7
+  ["bigEyes", "big eyes"],      // 1 in 6
+  ["droop", "droopy"],          // 1 in 5
+  ["tabby", "tabby"],           // 1 in 5
+];
+
+function rareTraits(cat) {
+  const out = NOTABLE.filter(([key]) => cat[key]).map(([, label]) => label);
+  // head is a string rather than a boolean, and only one of its two values
+  // is the uncommon one.
+  if (cat.head === "triangular") out.push("triangular head"); // 1 in 4
+  return out;
+}
+
+// ---- rare cat celebration ------------------------------------------------
+// Gold is excluded on purpose: every tenth cat is gold, so it lands several
+// times a day and a celebration that frequent stops being one.
+const CELEBRATE = {
+  rose: { glow: "255,158,196", label: "Rose quartz cat", odds: "1 in 85" },
+  emerald: { glow: "31,217,140", label: "Emerald cat", odds: "1 in 340" },
+  cosmic: { glow: "181,123,255", label: "Cosmic cat", odds: "1 in 1200" },
+};
+
+// Which cats have already been celebrated, keyed by the work they were earned
+// for. Persisted so a refresh or a reopened tab does not replay the whole
+// day's rare cats every time the page loads.
+const SEEN_KEY = "hc-celebrated";
+const seenRare = new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || "[]"));
+const markSeen = (key) => {
+  seenRare.add(key);
+  localStorage.setItem(SEEN_KEY, JSON.stringify([...seenRare]));
+};
+
+let muted = localStorage.getItem("hc-muted") === "1";
+
+function chime(tier) {
+  if (muted) return;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return;
+  try {
+    const ctx = new Ctx();
+    // An arpeggio rather than one tone, so it reads as a fanfare. Cosmic gets
+    // a longer, higher run than the other two.
+    const notes = tier === "cosmic"
+      ? [523.25, 659.25, 783.99, 1046.5, 1318.5]
+      : [523.25, 659.25, 783.99, 1046.5];
+    notes.forEach((freq, i) => {
+      const at = ctx.currentTime + i * 0.09;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.value = freq;
+      // Ramp rather than a hard stop, or each note ends in an audible click.
+      gain.gain.setValueAtTime(0.0001, at);
+      gain.gain.exponentialRampToValueAtTime(0.22, at + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.42);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(at);
+      osc.stop(at + 0.45);
+    });
+    setTimeout(() => ctx.close(), 1600);
+  } catch {
+    // Audio is decoration. A blocked autoplay policy must not take the
+    // fireworks down with it.
+  }
+}
+
+function celebrate(cat, tier) {
+  const spec = CELEBRATE[tier];
+  if (!spec) return;
+
+  const layer = document.createElement("div");
+  layer.className = "fw";
+  layer.style.setProperty("--glow", spec.glow);
+  // Three staggered bursts read as fireworks; one reads as a popped balloon.
+  for (let burst = 0; burst < 3; burst++) {
+    const ox = 25 + Math.random() * 50;
+    const oy = 25 + Math.random() * 30;
+    setTimeout(() => {
+      for (let i = 0; i < 26; i++) {
+        const p = document.createElement("i");
+        p.className = "fw-p";
+        const angle = (Math.PI * 2 * i) / 26 + Math.random() * 0.2;
+        const dist = 70 + Math.random() * 130;
+        p.style.left = `${ox}%`;
+        p.style.top = `${oy}%`;
+        p.style.setProperty("--dx", `${Math.cos(angle) * dist}px`);
+        p.style.setProperty("--dy", `${Math.sin(angle) * dist + 60}px`);
+        p.style.setProperty("--dur", `${1200 + Math.random() * 500}ms`);
+        layer.appendChild(p);
+      }
+    }, burst * 260);
+  }
+  document.body.appendChild(layer);
+
+  const banner = document.createElement("div");
+  banner.className = "fw-banner";
+  banner.style.setProperty("--glow", spec.glow);
+  banner.innerHTML =
+    `<b>${esc(spec.label)}</b><span>${esc(cat.name || "")} · ${spec.odds}</span>`;
+  document.body.appendChild(banner);
+
+  chime(tier);
+  setTimeout(() => { layer.remove(); banner.remove(); }, 2800);
+}
+
 function renderPile() {
   const list = data.herd?.today || [];
   $("pile-total").textContent = `${data.herd?.total ?? 0} all time`;
@@ -103,6 +218,7 @@ function renderPile() {
   if (!list.length) return;
 
   const PER_ROW = Math.max(4, Math.floor((pile.clientWidth || 520) / 42));
+  const pending = [];
   const indexed = list.map((c, position) => ({ ...c, position }));
   const rows = [];
   for (let end = indexed.length; end > 0; end -= PER_ROW) {
@@ -120,11 +236,26 @@ function renderPile() {
       wrap.className = coat.rare ? `pcat rare rare-${coat.rare}` : "pcat";
       wrap.style.setProperty("--tilt", `${(seed % 15) - 7}deg`);
       wrap.style.setProperty("--lift", `${seed % 6}px`);
-      wrap.title = `${c.name ? c.name + " · " : ""}${c.for}${c.at ? " · " + c.at : ""} · ${coat.name}`;
+      // Name, plus anything about this cat that is actually uncommon. The
+      // work it was earned for is already listed above the pile, so
+      // repeating it on hover just made the tooltip long. Common traits stay
+      // unnamed so the words that do appear always mean "this one is odd".
+      wrap.title = [c.name, coat.rare && coat.name, ...rareTraits(c)]
+        .filter(Boolean)
+        .join(" · ");
+      // Queue rather than fire here: renderPile runs inside a loop that is
+      // still building the DOM, and a celebration per cat would stack.
+      if (CELEBRATE[coat.rare] && !seenRare.has(c.for)) {
+        markSeen(c.for);
+        pending.push([c, coat.rare]);
+      }
       const canvas = drawCat(CAT_SIZE, seed + r, coat);
       if (canvas) {
         canvas.style.width = `${CAT_SIZE}px`;
         canvas.style.height = `${CAT_SIZE}px`;
+        // Without this the canvas eats the hover and the wrapper's title,
+        // which carries the cat's name, never shows.
+        canvas.style.pointerEvents = "none";
         wrap.appendChild(canvas);
       }
       if (coat.rare) {
@@ -139,6 +270,12 @@ function renderPile() {
     }
     pile.appendChild(el);
   }
+
+  // One at a time, spaced out. Two rare cats landing in the same refresh is
+  // vanishingly unlikely, but overlapping fireworks would look like a bug.
+  pending.forEach(([cat, tier], i) => {
+    setTimeout(() => celebrate(cat, tier), i * 3200);
+  });
 }
 
 // ---------- timeline ----------
@@ -256,7 +393,7 @@ function renderWatch() {
 function renderHistory() {
   const h = histData;
   if (!h) return;
-  $("hist-cc").textContent = `${h.total} all time`;
+  $("hist-cc").textContent = `${h.total} all time · see the herd →`;
 
   const max = Math.max(1, h.best);
   const rows = h.days.slice(0, 7).map((d) => {
@@ -411,6 +548,36 @@ document.addEventListener("click", async (e) => {
 
 document.addEventListener("keydown", (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === "r") { e.preventDefault(); $("refresh").click(); }
+});
+
+const paintMute = () => {
+  const b = $("mute");
+  if (!b) return;
+  b.textContent = muted ? "🔇" : "🔊";
+  b.title = muted ? "Rare cat sound is off" : "Rare cat sound is on";
+};
+$("mute")?.addEventListener("click", () => {
+  muted = !muted;
+  localStorage.setItem("hc-muted", muted ? "1" : "0");
+  paintMute();
+  // Play on unmute so the toggle proves itself, rather than leaving her to
+  // wait for a 1-in-85 cat to find out whether it worked.
+  if (!muted) chime("rose");
+});
+paintMute();
+
+$("log-done")?.addEventListener("click", async () => {
+  const text = prompt("What did you finish?");
+  if (!text || !text.trim()) return;
+  await post("/api/done", { text: text.trim() });
+  $("refresh").click();
+});
+
+$("add-task")?.addEventListener("click", async () => {
+  const title = prompt("What needs doing?");
+  if (!title || !title.trim()) return;
+  await post("/api/task", { title: title.trim() });
+  $("refresh").click();
 });
 
 refresh();

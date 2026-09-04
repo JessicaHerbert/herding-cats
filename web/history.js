@@ -18,6 +18,7 @@ function catFor(coatName, seed, size) {
   if (canvas) {
     canvas.style.width = `${size}px`;
     canvas.style.height = `${size}px`;
+    canvas.style.pointerEvents = "none";
   }
   return canvas;
 }
@@ -71,19 +72,28 @@ for (const slot of document.querySelectorAll("#coats .catslot")) {
 }
 
 const tr = h.traits || {};
-// Seeds chosen so each example actually carries the trait it illustrates:
-// whiskers is seed % 3 !== 0 and accessories is seed % 9 === 0.
-$("traits").innerHTML = [
-  ["whiskers", tr.whiskers || 0, 1],
-  ["glasses or hat", tr.accessories || 0, 9],
-].map(([name, n, seed]) => `<div class="swatch big">
-  <span class="catslot" data-seed="${seed}"></span>
-  <span class="sbody">
-    <span class="sname">${esc(name)}</span>
-    <span class="srate">${pct(n, h.total)} of all cats</span>
-  </span>
-  <span class="scount">${n}</span>
-</div>`).join("");
+// Seeds chosen so each example visibly carries the trait it illustrates.
+const TRAITS = [
+  ["whiskers", "whiskers", 1],
+  ["accessories", "glasses or hat", 9],
+  ["head", "pointed head", 7],
+  ["droop", "droopy ears", 11],
+  ["bigEyes", "big eyes", 13],
+  ["bigEars", "big ears", 17],
+  ["tabby", "heavy stripes", 19],
+  ["pixel", "pixelated", 23],
+];
+$("traits").innerHTML = TRAITS.map(([key, label, seed]) => {
+  const n = tr[key] || 0;
+  return `<div class="swatch big" style="${n ? "" : "opacity:.4"}">
+    <span class="catslot" data-seed="${seed}"></span>
+    <span class="sbody">
+      <span class="sname">${esc(label)}</span>
+      <span class="srate">${n ? pct(n, h.total) + " of all cats" : "none yet"}</span>
+    </span>
+    <span class="scount">${n}</span>
+  </div>`;
+}).join("");
 
 for (const slot of document.querySelectorAll("#traits .catslot")) {
   mount(slot, catFor("ginger", Number(slot.dataset.seed), 46));

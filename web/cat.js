@@ -79,9 +79,26 @@ function patchRandom(seed) {
   return () => { Math.random = original; };
 }
 
+// Shape traits, computed from the same seed slices as app/coats.py traits_for.
+// Keep the two in step: the Python side is what gets stored, this is what gets
+// drawn, and a mismatch means the collection page lies about the picture.
+export function traitsFor(seed) {
+  return {
+    whiskers: seed % 3 !== 0,
+    accessories: seed % 9 === 0,
+    head: Math.floor(seed / 7) % 4 === 0 ? "triangular" : "ellipse",
+    droop: Math.floor(seed / 11) % 5 === 0,
+    bigEyes: Math.floor(seed / 13) % 6 === 0,
+    bigEars: Math.floor(seed / 17) % 7 === 0,
+    tabby: Math.floor(seed / 19) % 5 === 0,
+    pixel: Math.floor(seed / 23) % 40 === 0,
+  };
+}
+
 export function drawCat(size, seed, coat) {
   if (!window.CatSnacks) return null;
   const restore = patchRandom(seed);
+  const t = traitsFor(seed);
   let src;
   try {
     src = window.CatSnacks.cat(size, {
@@ -91,9 +108,20 @@ export function drawCat(size, seed, coat) {
       // color it can parse. Painting the sidebar color and knocking it out
       // afterwards is simpler than patching the upstream part.
       backgroundColor: KNOCKOUT,
-      whiskers: seed % 3 !== 0,
-      accessories: seed % 9 === 0,
-      pixelate: false,
+      whiskers: t.whiskers,
+      accessories: t.accessories,
+      // Upstream picks these at random per cat. Pinning them to the seed makes
+      // the differences stable and countable instead of noise.
+      headShape: t.head,
+      droop: t.droop,
+      earFactorX: t.bigEars ? 1.15 : 0.95,
+      earFactorY: t.bigEars ? 1.1 : 0.95,
+      tabbyFactorX: t.tabby ? 1.2 : 0.92,
+      tabbyFactorY: t.tabby ? 1.2 : 0.92,
+      // eyeSize is assigned from headWidth before the merge, so this only
+      // takes effect because the merge runs after. Verified in a browser.
+      ...(t.bigEyes ? { eyeSize: size * 0.075 } : {}),
+      pixelate: t.pixel,
     });
   } catch (err) {
     console.warn("cat draw failed", err);

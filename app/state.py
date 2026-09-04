@@ -1,203 +1,66 @@
-"""Google Tasks and Calendar reads, plus day-file access."""
+"""Task and calendar reads through the provider seam, plus day-file access."""
 
-import json
-import os
-import subprocess
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-# Your Google Tasks list. Find it with: gws tasks tasklists list
-TASKLIST = os.environ.get("HERD_TASKLIST", "")
-TZ = ZoneInfo("America/Indiana/Indianapolis")
-DAILY_DIR = Path.home() / "tools-and-projects" / "rosie" / "daily"
+from . import paths
 
 
-def _gws(args: list[str]) -> dict:
-    proc = subprocess.run(
-        ["gws", *args],
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    if proc.returncode != 0:
-        raise RuntimeError(proc.stderr.strip()[:300] or "gws failed")
-    return json.loads(proc.stdout)
+def tz() -> ZoneInfo:
+    from . import config
+
+    try:
+        return ZoneInfo(config.load()["general"]["timezone"])
+    except Exception:
+        return ZoneInfo("UTC")
 
 
-DAY_STARTS_AT = 6  # local hour
+def day_starts_at() -> int:
+    from . import config
+
+    return config.load()["general"]["day_starts_at"]
 
 
 def today() -> datetime:
-    return datetime.now(TZ)
+    return datetime.now(tz())
 
 
 def working_day() -> str:
-    """The day the pile belongs to, on a 6am boundary rather than midnight.
+    """The day the pile belongs to, on a configurable boundary.
 
     Work finished at 00:30 belongs to the night before, not to a fresh day
     nobody has started yet.
     """
-    now = datetime.now(TZ)
-    if now.hour < DAY_STARTS_AT:
+    now = today()
+    if now.hour < day_starts_at():
         now -= timedelta(days=1)
     return now.strftime("%Y-%m-%d")
 
 
-def _local_date(value: str) -> str:
-    """Due dates are UTC-midnight markers, so their date part IS the intended day."""
-    return value[:10] if value else ""
-
-
-def _completed_date(value: str) -> str:
-    """Completion is a real UTC instant, converted to the local working day.
-
-    Two corrections happen here. Without the timezone conversion, anything
-    finished after 8pm ET lands on tomorrow's UTC date and drops off the list.
-    Without the 6am boundary, work finished at 00:30 starts a new day.
-    """
-    if not value:
-        return ""
-    try:
-        local = datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(TZ)
-    except ValueError:
-        return value[:10]
-    if local.hour < DAY_STARTS_AT:
-        local -= timedelta(days=1)
-    return local.strftime("%Y-%m-%d")
-
-
 def tasks() -> dict:
-    data = _gws([
-        "tasks", "tasks", "list",
-        "--params", json.dumps({
-            "tasklist": TASKLIST,
-            "showCompleted": True,
-            "showHidden": True,
-            "maxResults": 100,
-        }),
-    ])
-    from . import picks  # local, since picks imports state for the day boundary
+    from . import providers
 
-    today_str = working_day()
-    starred = picks.today()
-
-    picked, due_today, overdue, undated, done_today = [], [], [], [], []
-    for item in data.get("items", []):
-        row = {
-            "id": item.get("id"),
-            "title": (item.get("title") or "").strip(),
-            "due": _local_date(item.get("due", "")),
-            "notes": item.get("notes", ""),
-        }
-        if not row["title"]:
-            continue
-        if item.get("status") == "completed":
-            if _completed_date(item.get("completed", "")) == today_str:
-                row["completed"] = item.get("completed", "")
-                done_today.append(row)
-            continue
-        # A pick lifts the task into its own pile rather than copying it, so
-        # nothing shows up twice and "due today" keeps meaning a real deadline.
-        if row["id"] in starred:
-            row["picked"] = True
-            picked.append(row)
-        elif not row["due"]:
-            undated.append(row)
-        elif row["due"] == today_str:
-            due_today.append(row)
-        elif row["due"] < today_str:
-            overdue.append(row)
-
-    return {
-        "picked": picked,
-        "due_today": due_today,
-        "overdue": overdue,
-        "undated": undated,
-        "done_today": done_today,
-    }
+    return providers.tasks().list_tasks()
 
 
 def calendar() -> dict:
-    now = today()
-    start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    end = start + timedelta(days=1)
-    data = _gws([
-        "calendar", "events", "list",
-        "--params", json.dumps({
-            "calendarId": "primary",
-            "timeMin": start.isoformat(),
-            "timeMax": end.isoformat(),
-            "singleEvents": True,
-            "orderBy": "startTime",
-        }),
-    ])
+    from . import providers
 
-    events = []
-    for item in data.get("items", []):
-        s = item.get("start", {})
-        e = item.get("end", {})
-        start_dt = s.get("dateTime")
-        if not start_dt:
-            continue  # all-day events are location markers, not commitments
-        events.append({
-            "id": item.get("id"),
-            "summary": item.get("summary", "(no title)"),
-            "start": start_dt,
-            "end": e.get("dateTime", ""),
-            "type": item.get("eventType", "default"),
-        })
-
-    now_iso = now.isoformat()
-    current = None
-    for ev in events:
-        ev["past"] = bool(ev["end"]) and ev["end"] < now_iso
-        ev["live"] = ev["start"] <= now_iso < (ev["end"] or ev["start"])
-        if ev["live"] and current is None:
-            current = ev
-
-    return {"events": events, "now": current, "collisions": _collisions(events)}
-
-
-HOLD_HOURS = 3
-
-
-def _is_hold(ev: dict) -> bool:
-    """A long self-booked block is protected time, not a commitment.
-
-    Everything scheduled inside a "do not book" window overlaps it by design,
-    so counting those as collisions buries the real ones.
-    """
-    if not (ev["start"] and ev["end"]):
-        return False
-    try:
-        hours = (datetime.fromisoformat(ev["end"]) - datetime.fromisoformat(ev["start"]))
-    except ValueError:
-        return False
-    return hours >= timedelta(hours=HOLD_HOURS)
-
-
-def _collisions(events: list[dict]) -> list[dict]:
-    """Overlapping commitments, and task blocks buried under meetings."""
-    real = sorted(
-        (e for e in events if not _is_hold(e) and e["start"] and e["end"]),
-        key=lambda e: e["start"],
-    )
-    out = []
-    for i, a in enumerate(real):
-        for b in real[i + 1:]:
-            if b["start"] >= a["end"]:
-                break  # sorted, so nothing later can overlap a either
-            out.append({
-                "a": a["summary"].strip(), "b": b["summary"].strip(),
-                "at": b["start"][11:16],
-                "task_block": a["type"] == "focusTime" or b["type"] == "focusTime",
-            })
-    return out
+    cal = providers.calendar_or_none()
+    return cal.today() if cal else {"events": [], "collisions": []}
 
 
 def day_file_path(date: str | None = None) -> Path:
-    return DAILY_DIR / f"{date or working_day()}.md"
+    """The day file, with its directory guaranteed to exist.
+
+    Callers write to this path directly in nine places. Creating the parent
+    here covers all of them, where a fresh HERD_HOME otherwise fails on the
+    first append with a bare FileNotFoundError.
+    """
+    daily = paths.daily_dir()
+    daily.mkdir(parents=True, exist_ok=True)
+    return daily / f"{date or working_day()}.md"
 
 
 def day_file() -> str:
@@ -218,8 +81,14 @@ def append_done(text: str) -> None:
         )
         return
     body = path.read_text()
-    marker = "## Decisions"
-    if marker in body:
+    # Anchor on whichever section comes FIRST after "On the list", not on
+    # "## Decisions" specifically. The file grew a "## Watching" section
+    # between the two, and anchoring on Decisions quietly filed every
+    # completion at the bottom of the watchlist instead.
+    markers = [m for m in ("## Watching", "## Decisions", "## Open threads",
+                           "## Notes", "## For Claude") if m in body]
+    marker = min(markers, key=body.index) if markers else ""
+    if marker:
         head, _, tail = body.partition(marker)
         path.write_text(f"{head.rstrip()}\n{line}\n{marker}{tail}")
     else:
@@ -261,31 +130,53 @@ def append_note(text: str, about: str = "") -> None:
 
 
 def uncomplete_task(task_id: str) -> dict:
-    """Reopen a task. Only `status` goes in the body: sending a null
-    `completed` alongside it makes the API reject the whole patch silently."""
-    return _gws([
-        "tasks", "tasks", "patch",
-        "--params", json.dumps({"tasklist": TASKLIST, "task": task_id}),
-        "--json", json.dumps({"status": "needsAction"}),
-    ])
+    from . import providers
+
+    return providers.tasks().uncomplete(task_id)
+
+
+def remove_done(text: str) -> bool:
+    """Take a completed line back out of the day file.
+
+    Undo used to only drop the cat from herd.json, but sync_day_file re-adds
+    any `- [x]` line on the next state read, so an undone item came straight
+    back. Matched loosely, since the line carries a timestamp the caller has
+    no reason to know.
+    """
+    import re
+
+    path = day_file_path()
+    if not path.exists():
+        return False
+
+    want = re.sub(r"[^a-z0-9 ]+", " ", (text or "").lower())
+    want = " ".join(w for w in want.split() if len(w) > 2)[:60]
+    if not want:
+        return False
+
+    kept, dropped = [], False
+    for line in path.read_text().splitlines():
+        m = re.match(r"^\s*-\s*\[x\]\s+(.+?)\s*$", line, re.I)
+        if m:
+            got = re.sub(r"[^a-z0-9 ]+", " ", m.group(1).lower())
+            got = " ".join(w for w in got.split() if len(w) > 2)[:60]
+            if got == want:
+                dropped = True
+                continue
+        kept.append(line)
+
+    if dropped:
+        path.write_text("\n".join(kept) + "\n")
+    return dropped
 
 
 def complete_task(task_id: str) -> dict:
-    return _gws([
-        "tasks", "tasks", "patch",
-        "--params", json.dumps({"tasklist": TASKLIST, "task": task_id}),
-        "--json", json.dumps({"status": "completed"}),
-    ])
+    from . import providers
+
+    return providers.tasks().complete(task_id)
 
 
 def create_task(title: str, notes: str = "", due: str | None = None) -> dict:
-    body: dict = {"title": title}
-    if notes:
-        body["notes"] = notes
-    if due:
-        body["due"] = f"{due}T00:00:00.000Z"
-    return _gws([
-        "tasks", "tasks", "insert",
-        "--params", json.dumps({"tasklist": TASKLIST}),
-        "--json", json.dumps(body),
-    ])
+    from . import providers
+
+    return providers.tasks().create(title, notes, due)
