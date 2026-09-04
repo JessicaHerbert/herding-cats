@@ -9,6 +9,8 @@ import json
 import subprocess
 from datetime import datetime, timedelta
 
+from . import base
+
 
 def _gws(args: list[str]) -> dict:
     proc = subprocess.run(
@@ -40,21 +42,8 @@ def _local_date(value: str) -> str:
 
 
 def _completed_date(value: str) -> str:
-    """Completion is a real UTC instant, converted to the local working day.
-
-    Two corrections happen here. Without the timezone conversion, anything
-    finished after 8pm ET lands on tomorrow's UTC date and drops off the list.
-    Without the 6am boundary, work finished at 00:30 starts a new day.
-    """
-    if not value:
-        return ""
-    try:
-        local = datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(_tz())
-    except ValueError:
-        return value[:10]
-    if local.hour < _day_starts_at():
-        local -= timedelta(days=1)
-    return local.strftime("%Y-%m-%d")
+    """Shared with every other provider that reports completions."""
+    return base.completed_working_day(value)
 
 
 class GoogleTasksProvider:

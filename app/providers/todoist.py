@@ -100,7 +100,7 @@ class TodoistProvider:
             "/tasks/completed/by_completion_date",
             {"since": since, "until": until, "limit": 200},
         ):
-            done_at = (item.get("completed_at") or "")[:10]
+            done_at = base.completed_working_day(item.get("completed_at") or "")
             if done_at != today:
                 continue
             row = self._row(item)

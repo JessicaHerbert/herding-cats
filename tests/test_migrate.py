@@ -118,3 +118,31 @@ def test_the_owning_install_is_still_offered_them(tmp_path, monkeypatch):
         assert "daily" in found
     finally:
         migrate.OLD_DAILY = monkey
+
+
+def test_a_scratch_install_is_not_offered_the_repo_root_herd(tmp_home, tmp_path):
+    """run() unlinks the original after copying, so a throwaway HERD_HOME must
+    not be shown a herd that belongs to a real install. tmp_home is not the
+    default location, so find_old should decline to offer either file."""
+    checkout = tmp_path / "someones-checkout"
+    checkout.mkdir()
+    (checkout / "herd.json").write_text('{"days": {}, "total": 109}')
+    (checkout / "picks.json").write_text("{}")
+
+    found = migrate.find_old(old_daily=tmp_path / "no-daily")
+
+    assert "herd" not in found
+    assert "picks" not in found
+    assert (checkout / "herd.json").exists()
+
+
+def test_an_explicit_root_is_still_honored(tmp_home, tmp_path):
+    """Passing repo_root is a deliberate act, so it overrides the guard.
+    The tests above rely on this to drive migration at all."""
+    checkout = tmp_path / "explicit"
+    checkout.mkdir()
+    (checkout / "herd.json").write_text('{"days": {}, "total": 1}')
+
+    found = migrate.find_old(repo_root=checkout, old_daily=tmp_path / "no-daily")
+
+    assert "herd" in found

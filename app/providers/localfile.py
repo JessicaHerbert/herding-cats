@@ -24,6 +24,25 @@ def _today() -> str:
     return state.working_day()
 
 
+def _strip_markers(body: str) -> tuple[str, str, str]:
+    """Split a line body into its title, due date, and done date.
+
+    Both markers anchor to end of line, so they have to come off in the same
+    order everywhere. Stripping DUE first leaves a trailing "(done ...)" that
+    DONE can no longer match, and the two call sites then hash different
+    strings for the same task.
+    """
+    done_on = ""
+    due_on = ""
+    if dm := DONE.search(body):
+        done_on = dm.group(1)
+        body = DONE.sub("", body)
+    if um := DUE.search(body):
+        due_on = um.group(1)
+        body = DUE.sub("", body)
+    return body.strip(), due_on, done_on
+
+
 def _task_id(title: str) -> str:
     return hashlib.sha1(title.encode()).hexdigest()[:12]
 
@@ -58,16 +77,7 @@ class LocalFileProvider:
             checked = m.group(1).lower() == "x"
             body = m.group(2)
 
-            done_on = ""
-            due_on = ""
-            if dm := DONE.search(body):
-                done_on = dm.group(1)
-                body = DONE.sub("", body)
-            if um := DUE.search(body):
-                due_on = um.group(1)
-                body = DUE.sub("", body)
-
-            title = body.strip()
+            title, due_on, done_on = _strip_markers(body)
             if not title:
                 continue
             row = base.task_row(id=_task_id(title), title=title, due=due_on)
@@ -90,12 +100,11 @@ class LocalFileProvider:
             m = LINE.match(line)
             if not m:
                 continue
-            body = DONE.sub("", DUE.sub("", m.group(2))).strip()
-            if _task_id(body) != task_id:
+            title, due_on, _ = _strip_markers(m.group(2))
+            if _task_id(title) != task_id:
                 continue
 
-            rest = m.group(2)
-            rest = DONE.sub("", rest).rstrip()
+            rest = title + (f" (due {due_on})" if due_on else "")
             if to_done:
                 lines[i] = f"- [x] {rest} (done {_today()})"
             else:

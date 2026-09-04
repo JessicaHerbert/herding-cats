@@ -12,6 +12,7 @@ and a list's append for output_fn.
 import json
 import subprocess
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from . import config, migrate, paths
 
@@ -136,7 +137,16 @@ def _make_mail_provider(which: str, address: str):
 def run(input_fn=input, output_fn=print) -> Path:
     output_fn("Herding Cats setup\n")
 
-    timezone = _ask(input_fn, output_fn, "Timezone", config._system_timezone())
+    while True:
+        timezone = _ask(input_fn, output_fn, "Timezone", config._system_timezone())
+        try:
+            ZoneInfo(timezone)
+            break
+        except Exception:
+            # Every other prompt verifies before persisting. Without this the
+            # wizard writes an unloadable zone, prints success, and the app
+            # then refuses to start with a ConfigError.
+            output_fn(f"  {timezone!r} is not a zone name. Try one like America/New_York.")
     day_starts_raw = _ask(input_fn, output_fn, "What hour does your day start at (0-23)", "6")
     try:
         day_starts_at = int(day_starts_raw)

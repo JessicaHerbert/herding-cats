@@ -32,14 +32,19 @@ def find_old(repo_root: Path | None = None, old_daily: Path | None = None) -> di
     clone. The day files live at a fixed path instead, and are only offered
     when this is the install that owns them.
     """
+    explicit_root = repo_root is not None
     root = repo_root or Path(__file__).parent.parent
     explicit = old_daily is not None
     daily = old_daily if explicit else OLD_DAILY
 
+    # A repo-root herd belongs to whoever installed here. run() unlinks the
+    # original once copied, so a scratch HERD_HOME must not be offered it.
+    owns = explicit_root or _is_default_home()
+
     found = {}
-    if (root / "herd.json").exists() and not paths.herd_file().exists():
+    if owns and (root / "herd.json").exists() and not paths.herd_file().exists():
         found["herd"] = root / "herd.json"
-    if (root / "picks.json").exists() and not paths.picks_file().exists():
+    if owns and (root / "picks.json").exists() and not paths.picks_file().exists():
         found["picks"] = root / "picks.json"
     if (explicit or _is_default_home()) and daily.is_dir() and any(daily.glob("*.md")):
         found["daily"] = daily

@@ -44,3 +44,16 @@ def test_blank_answers_take_the_defaults(tmp_home):
     setup.run(input_fn=lambda _="": next(answers), output_fn=lambda _: None)
     cfg = tomllib.loads(paths.config_file().read_text())
     assert cfg["general"]["day_starts_at"] == 6
+
+
+def test_the_wizard_refuses_a_zone_it_cannot_load(tmp_home):
+    """The detected default used to be an abbreviation like EDT. Writing it
+    produced a config that printed success and then would not start."""
+    answers = iter(["EDT", "America/New_York", "6", "3",
+                    str(tmp_home / "t.md"), "2", "n"])
+    said = []
+    setup.run(input_fn=lambda _="": next(answers), output_fn=said.append)
+
+    assert any("not a zone name" in s for s in said)
+    cfg = tomllib.loads(paths.config_file().read_text())
+    assert cfg["general"]["timezone"] == "America/New_York"
