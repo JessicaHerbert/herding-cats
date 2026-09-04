@@ -7,6 +7,8 @@ working: HERD_TASKLIST and HERD_EMAIL were the original settings.
 import os
 import tomllib
 from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from . import paths
 
@@ -21,8 +23,32 @@ class ConfigError(Exception):
 
 
 def _system_timezone() -> str:
+    """The system zone as an IANA name, never an abbreviation.
+
+    `datetime.now().astimezone()` yields the current abbreviation, which is
+    "EDT" on this machine, and ZoneInfo cannot load that. Offering it as the
+    setup default produced a config that silently ran as UTC, moving the day
+    boundary by four hours. /etc/localtime is a symlink into the zoneinfo
+    database, so its target carries the real name.
+    """
+    link = Path("/etc/localtime")
+    if link.is_symlink():
+        parts = link.readlink().parts
+        if "zoneinfo" in parts:
+            name = "/".join(parts[parts.index("zoneinfo") + 1:])
+            try:
+                ZoneInfo(name)
+                return name
+            except Exception:
+                pass
+
     tz = datetime.now().astimezone().tzinfo
-    return str(tz) if tz else "UTC"
+    guess = str(tz) if tz else "UTC"
+    try:
+        ZoneInfo(guess)
+        return guess
+    except Exception:
+        return "UTC"
 
 
 def _defaults() -> dict:
@@ -70,6 +96,16 @@ def reload() -> dict:
         cfg["general"]["day_starts_at"] = int(cfg["general"]["day_starts_at"])
     except (TypeError, ValueError) as exc:
         raise ConfigError("day_starts_at must be a whole number of hours") from exc
+
+    # A zone that will not load used to fall through to UTC at read time, so
+    # the day boundary moved by hours and nothing said why.
+    try:
+        ZoneInfo(cfg["general"]["timezone"])
+    except Exception as exc:
+        raise ConfigError(
+            f"unknown timezone {cfg['general']['timezone']!r}, "
+            "expected an IANA name such as America/New_York"
+        ) from exc
 
     _cache = cfg
     return cfg

@@ -55,3 +55,25 @@ def test_exists_reflects_the_file(tmp_home):
     assert config.exists() is False
     (tmp_home / "config.toml").write_text('[tasks]\nprovider = "localfile"\n')
     assert config.exists() is True
+
+
+def test_detected_timezone_is_a_loadable_zone():
+    """The default offered by setup has to be something ZoneInfo accepts.
+
+    datetime.now().astimezone() returns the abbreviation, "EDT" on a US
+    Eastern machine, which ZoneInfo cannot load. Accepting that default
+    wrote a config that silently ran as UTC and moved the day boundary by
+    four hours.
+    """
+    from zoneinfo import ZoneInfo
+
+    ZoneInfo(config._system_timezone())
+
+
+def test_an_unloadable_timezone_is_rejected_not_silently_ignored(tmp_home):
+    (tmp_home / "config.toml").write_text(
+        '[general]\ntimezone = "EDT"\n[tasks]\nprovider = "localfile"\n'
+    )
+    with pytest.raises(config.ConfigError) as e:
+        config.reload()
+    assert "EDT" in str(e.value)
