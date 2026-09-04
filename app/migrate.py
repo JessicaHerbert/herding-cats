@@ -14,17 +14,34 @@ from . import paths
 OLD_DAILY = Path.home() / "tools-and-projects" / "rosie" / "daily"
 
 
+def _is_default_home() -> bool:
+    """Whether HERD_HOME is where an unconfigured install would put it.
+
+    OLD_DAILY is one machine's absolute path, so a clone anywhere on that
+    machine used to offer to move those day files, and run() deletes the
+    originals once copied. A scratch install pointed at a temporary
+    HERD_HOME has no business touching them.
+    """
+    return paths.home() == Path(paths.DEFAULT_HOME).expanduser()
+
+
 def find_old(repo_root: Path | None = None, old_daily: Path | None = None) -> dict:
-    """Old-layout data worth moving, keyed by what it is."""
+    """Old-layout data worth moving, keyed by what it is.
+
+    The herd and picks are looked for beside the code, so they follow the
+    clone. The day files live at a fixed path instead, and are only offered
+    when this is the install that owns them.
+    """
     root = repo_root or Path(__file__).parent.parent
-    daily = old_daily if old_daily is not None else OLD_DAILY
+    explicit = old_daily is not None
+    daily = old_daily if explicit else OLD_DAILY
 
     found = {}
     if (root / "herd.json").exists() and not paths.herd_file().exists():
         found["herd"] = root / "herd.json"
     if (root / "picks.json").exists() and not paths.picks_file().exists():
         found["picks"] = root / "picks.json"
-    if daily.is_dir() and any(daily.glob("*.md")):
+    if (explicit or _is_default_home()) and daily.is_dir() and any(daily.glob("*.md")):
         found["daily"] = daily
     return found
 

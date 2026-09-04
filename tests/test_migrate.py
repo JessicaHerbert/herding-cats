@@ -81,3 +81,40 @@ def test_a_failed_writeback_is_not_reported_as_moved(tmp_home, tmp_path, monkeyp
 
     assert result["picks"] == 0
     assert (tmp_path / "picks.json").exists()
+
+
+def test_a_scratch_install_is_not_offered_the_real_day_files(tmp_home, tmp_path):
+    """OLD_DAILY is one machine's absolute path. A clone pointed at a
+    temporary HERD_HOME used to be offered those day files, and run()
+    deletes originals after copying."""
+    real_daily = tmp_path / "someones-real-daily"
+    real_daily.mkdir()
+    (real_daily / "2026-09-01.md").write_text("# a real day")
+    monkey = migrate.OLD_DAILY
+    try:
+        migrate.OLD_DAILY = real_daily
+        found = migrate.find_old(repo_root=tmp_path)
+        assert "daily" not in found
+        assert (real_daily / "2026-09-01.md").exists()
+    finally:
+        migrate.OLD_DAILY = monkey
+
+
+def test_the_owning_install_is_still_offered_them(tmp_path, monkeypatch):
+    """At the default HERD_HOME the offer must still happen, or the one
+    person with data to migrate never gets it moved."""
+    from app import paths as paths_mod
+
+    home = tmp_path / "default-home"
+    monkeypatch.setattr(paths_mod, "DEFAULT_HOME", str(home))
+    monkeypatch.setenv("HERD_HOME", str(home))
+    real_daily = tmp_path / "owning-daily"
+    real_daily.mkdir()
+    (real_daily / "2026-09-01.md").write_text("# a real day")
+    monkey = migrate.OLD_DAILY
+    try:
+        migrate.OLD_DAILY = real_daily
+        found = migrate.find_old(repo_root=tmp_path)
+        assert "daily" in found
+    finally:
+        migrate.OLD_DAILY = monkey
