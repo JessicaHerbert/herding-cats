@@ -21,3 +21,6 @@ mockup*.html
 
 # Backups of the herd, same reasoning as herd.json above.
 herd.backup-*.json
+
+# Subagent-driven development scratch.
+.superpowers/
