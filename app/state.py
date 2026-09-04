@@ -1,30 +1,39 @@
 """Task and calendar reads through the provider seam, plus day-file access."""
 
-import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-# Your Google Tasks list. Find it with: gws tasks tasklists list
-TASKLIST = os.environ.get("HERD_TASKLIST", "")
-TZ = ZoneInfo("America/Indiana/Indianapolis")
-DAILY_DIR = Path.home() / "tools-and-projects" / "rosie" / "daily"
+from . import paths
 
-DAY_STARTS_AT = 6  # local hour
+
+def tz() -> ZoneInfo:
+    from . import config
+
+    try:
+        return ZoneInfo(config.load()["general"]["timezone"])
+    except Exception:
+        return ZoneInfo("UTC")
+
+
+def day_starts_at() -> int:
+    from . import config
+
+    return config.load()["general"]["day_starts_at"]
 
 
 def today() -> datetime:
-    return datetime.now(TZ)
+    return datetime.now(tz())
 
 
 def working_day() -> str:
-    """The day the pile belongs to, on a 6am boundary rather than midnight.
+    """The day the pile belongs to, on a configurable boundary.
 
     Work finished at 00:30 belongs to the night before, not to a fresh day
     nobody has started yet.
     """
-    now = datetime.now(TZ)
-    if now.hour < DAY_STARTS_AT:
+    now = today()
+    if now.hour < day_starts_at():
         now -= timedelta(days=1)
     return now.strftime("%Y-%m-%d")
 
@@ -43,7 +52,7 @@ def calendar() -> dict:
 
 
 def day_file_path(date: str | None = None) -> Path:
-    return DAILY_DIR / f"{date or working_day()}.md"
+    return paths.daily_dir() / f"{date or working_day()}.md"
 
 
 def day_file() -> str:

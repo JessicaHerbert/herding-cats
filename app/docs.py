@@ -116,7 +116,7 @@ def touched(days: int = 7, limit: int = 40) -> dict:
     if not PROJECTS.exists():
         return {"docs": [], "days": days, "sessions": 0}
 
-    cutoff = (datetime.now(state.TZ) - timedelta(days=days)).timestamp()
+    cutoff = (datetime.now(state.tz()) - timedelta(days=days)).timestamp()
     found: dict[str, dict] = {}
     notion: dict[str, dict] = {}
     scanned = 0
@@ -251,10 +251,10 @@ def _relative(iso: str) -> str:
     if not iso:
         return ""
     try:
-        when = datetime.fromisoformat(iso.replace("Z", "+00:00")).astimezone(state.TZ)
+        when = datetime.fromisoformat(iso.replace("Z", "+00:00")).astimezone(state.tz())
     except ValueError:
         return ""
-    now = datetime.now(state.TZ)
+    now = datetime.now(state.tz())
     delta = now - when
     if delta < timedelta(minutes=2):
         return "just now"
@@ -272,6 +272,6 @@ def _relative(iso: str) -> str:
 
 
 def _working_day_of(when: datetime) -> str:
-    if when.hour < state.DAY_STARTS_AT:
+    if when.hour < state.day_starts_at():
         when -= timedelta(days=1)
     return when.strftime("%Y-%m-%d")

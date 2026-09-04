@@ -25,13 +25,13 @@ def _gws(args: list[str]) -> dict:
 def _tz():
     from .. import state
 
-    return state.TZ
+    return state.tz()
 
 
 def _day_starts_at() -> int:
     from .. import state
 
-    return state.DAY_STARTS_AT
+    return state.day_starts_at()
 
 
 def _local_date(value: str) -> str:
