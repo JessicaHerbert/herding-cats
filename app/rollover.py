@@ -1,8 +1,8 @@
 """Create today's day file, carrying forward what is still unresolved.
 
-Two previous attempts at a daily log died because they needed Jess to go
+Two previous attempts at a daily log died because they needed someone to go
 somewhere and start one. This runs on first read of the day, so the file
-exists before she looks for it, and the watchlist survives the boundary
+exists before you look for it, and the watchlist survives the boundary
 instead of starting empty every morning.
 """
 

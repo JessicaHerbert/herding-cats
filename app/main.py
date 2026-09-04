@@ -67,9 +67,9 @@ async def get_mail():
 async def open_external(body: dict):
     """Hand a URL or a local file to the system default handler.
 
-    The app window runs in an isolated Chrome profile, so a plain link would
-    open in a browser Jess is not signed into. `open` respects the real default
-    for both web links and files.
+    The app window is signed into nothing, so a plain link would open in a
+    browser with no session. `open` respects the real system default for both
+    web links and files.
     """
     target = (body.get("url") or "").strip()
 

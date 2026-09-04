@@ -35,7 +35,7 @@ BASH_WRITE = (
 )
 
 # Noise: transient files and machinery that are not "documents" in any sense
-# Jess would recognize.
+# a person would recognize.
 SKIP_PARTS = (
     "/.claude/projects/", "/node_modules/", "/.venv/", "/site-packages/",
     "/tool-results/", "/.remember/", "/__pycache__/", "/.git/",
@@ -45,7 +45,7 @@ SKIP_PREFIX = ("/tmp/", "/private/tmp/", "/var/folders/")
 
 
 # Documents are things with prose or data in them, not source code. A .py file
-# is work, but it is not a document Jess would go looking for later.
+# is work, but it is not a document anyone goes looking for later.
 CONTENT_EXT = {".md", ".markdown", ".csv", ".tsv", ".html", ".htm", ".pdf",
                ".txt", ".docx", ".xlsx", ".json"}
 

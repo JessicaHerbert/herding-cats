@@ -1,4 +1,4 @@
-"""Threads where the ball is in Jess's court.
+"""Threads where the ball is in your court.
 
 The reading itself moved to app/providers/gmail.py so a different mail backend
 can answer instead. This module stays as the name the rest of the app already

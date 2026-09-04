@@ -1,12 +1,12 @@
-"""Tasks Jess picked for today.
+"""Tasks you picked for today.
 
 Google Tasks has no "I want to do this today" field, and a due date is the
 wrong tool for it: most of the backlog has no real deadline, and stamping one
 on turns a choice into a fake commitment that then reads as overdue tomorrow.
 
-So the picks live here, keyed by task id and scoped to a working day. Google
-Tasks stays the source of truth for what the tasks ARE; this only records
-which of them Jess pulled forward this morning.
+So the picks live here, keyed by task id and scoped to a working day. The
+task provider stays the source of truth for what the tasks ARE; this only
+records which of them you pulled forward this morning.
 """
 
 import json

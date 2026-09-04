@@ -1,10 +1,10 @@
-"""Threads where the ball is in Jess's court.
+"""Threads where the ball is in your court.
 
 Not an inbox. Unread is the wrong signal, because the mail that actually needs
 a reply has usually been read already, and what is left unread is
-notifications. The signal that works is: someone else sent the last message,
-and Jess is on the To line rather than Cc. Cc means the reply belongs to
-whoever was addressed.
+notifications. The signal that works is that someone else sent the last
+message and you are on the To line rather than Cc. Cc means the reply belongs
+to whoever was addressed.
 
 Moved here from mail.py unchanged, except that the address arrives from config
 rather than being read off the environment when the module loads.
@@ -82,7 +82,7 @@ class GmailProvider:
             last = msgs[-1]
             head = {h["name"].lower(): h["value"] for h in last.get("payload", {}).get("headers", [])}
 
-            # Jess spoke last, so it is their turn rather than hers.
+            # You spoke last, so the ball is in their court rather than yours.
             if me in head.get("from", "").lower():
                 continue
             # On Cc only means the reply belongs to whoever is on To.
