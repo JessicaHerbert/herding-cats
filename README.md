@@ -23,8 +23,8 @@ You need Python 3.11 or newer and [uv](https://docs.astral.sh/uv/). Nothing
 else is required to get a working dashboard.
 
 ```
-git clone <this repo>
-cd herding-cats-app
+git clone https://github.com/JessicaHerbert/herding-cats.git
+cd herding-cats
 uv sync
 ```
 
