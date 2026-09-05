@@ -156,8 +156,13 @@ def _is_hold(ev: dict) -> bool:
     return hours >= timedelta(hours=HOLD_HOURS)
 
 
-def _collisions(events: list[dict]) -> list[dict]:
-    """Overlapping commitments, and task blocks buried under meetings."""
+def _collisions(events: list[dict], now_iso: str = "") -> list[dict]:
+    """Overlapping commitments, and task blocks buried under meetings.
+
+    A conflict is only worth showing while it can still be acted on. Once both
+    sides have ended there is no decision left to make, so it drops rather than
+    sitting on the page for the rest of the day.
+    """
     real = sorted(
         (e for e in events if not _is_hold(e) and e["start"] and e["end"]),
         key=lambda e: e["start"],
@@ -167,6 +172,8 @@ def _collisions(events: list[dict]) -> list[dict]:
         for b in real[i + 1:]:
             if b["start"] >= a["end"]:
                 break  # sorted, so nothing later can overlap a either
+            if now_iso and a["end"] <= now_iso and b["end"] <= now_iso:
+                continue  # both over, nothing left to decide
             out.append({
                 "a": a["summary"].strip(), "b": b["summary"].strip(),
                 "at": b["start"][11:16],
@@ -225,4 +232,4 @@ class GoogleCalendar:
             if ev["live"] and current is None:
                 current = ev
 
-        return {"events": events, "now": current, "collisions": _collisions(events)}
+        return {"events": events, "now": current, "collisions": _collisions(events, now_iso)}
