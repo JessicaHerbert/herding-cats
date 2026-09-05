@@ -106,7 +106,15 @@ async def complete(task_id: str, body: dict | None = None):
     except Exception as exc:
         return JSONResponse({"ok": False, "error": str(exc)[:200]}, status_code=500)
     title = (body or {}).get("title", "a task")
-    return {"ok": True, "earned": await asyncio.to_thread(cats.earn, title)}
+    earned = await asyncio.to_thread(cats.earn, title)
+    # The cat goes in herd.json, but the day file is the record that outlives
+    # the session, and only /api/done was writing to it. Seven completions
+    # logged here on 2026-09-04 reached the herd and never the file, which left
+    # the day file hours behind and a later session reading it drew the wrong
+    # window. Skip duplicates, since the cat was not awarded either.
+    if earned.get("cat"):
+        await asyncio.to_thread(state.append_done, title)
+    return {"ok": True, "earned": earned}
 
 
 @app.post("/api/task/{task_id}/uncomplete")
