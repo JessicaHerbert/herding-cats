@@ -6,8 +6,9 @@ requires-python = ">=3.11"
 exclude-newer = "2026-03-25T00:00:00Z"
 
 [options.exclude-newer-package]
-canvas = "2026-06-01T00:00:00Z"
-canvas-sdk = "2026-06-01T00:00:00Z"
+canvas = "2026-09-19T00:00:00Z"
+canvas-sdk = "2026-09-19T00:00:00Z"
+snowflake-connector-python = "2026-09-19T00:00:00Z"
 
 [[package]]
 name = "annotated-doc"

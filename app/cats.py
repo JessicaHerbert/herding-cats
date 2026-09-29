@@ -36,18 +36,87 @@ MILESTONES = {
 }
 
 
+# Words that carry no information about WHICH piece of work this is. Two
+# descriptions of the same thing rarely share their opening verb, so these
+# are stripped before comparing rather than counted as agreement.
+_STOPWORDS = frozenset("""
+the and for with that this from into out off about after before then than
+was were been being are its it's has have had will would could should
+you your our their his her they them
+answered answer sent send sending replied reply replying wrote write wrote
+finished finish completed complete done did doing made make making
+got get getting ran run running went gone
+""".split())
+
+
+def _content_words(title: str) -> list[str]:
+    """The words that identify which work this is, in order, deduped."""
+    import re
+
+    t = re.sub(r"\(.*?\)", " ", (title or "").lower())
+    t = re.sub(r"[^a-z0-9 ]+", " ", t)
+    seen, out = set(), []
+    for w in t.split():
+        if len(w) > 2 and w not in _STOPWORDS and w not in seen:
+            seen.add(w)
+            out.append(w)
+    return out
+
+
 def _key(title: str) -> str:
     """Loose match, so the same work logged in two places earns one cat.
 
     A Google Task titled "Answer SAF" and a day-file line reading
     "Answer SAF (08:30 block)" are the same thing.
-    """
-    import re
 
-    t = re.sub(r"\(.*?\)", " ", (title or "").lower())
-    t = re.sub(r"[^a-z0-9 ]+", " ", t)
-    words = [w for w in t.split() if len(w) > 2]
-    return " ".join(words[:5])
+    Keyed on sorted content words rather than the first five words in order.
+    The positional version missed any pair that described the same work with
+    a different opening: on 2026-09-14 "Answered the Allowed Amounts question
+    for the customer" and "Sent the Allowed Amounts answer to the customer
+    and the internal team" earned two cats for one piece of work, because
+    they share no leading words at all.
+    """
+    return " ".join(sorted(_content_words(title)[:6]))
+
+
+def _same_work(a: str, b: str) -> bool:
+    """Whether two descriptions are the same piece of work.
+
+    Exact key match catches the clean cases. Beyond that, two descriptions
+    count as the same work when their content words overlap heavily, which
+    is what a reworded second entry looks like. The threshold is deliberately
+    high: sharing a topic ("Surescripts") is not the same as being the same
+    task, and merging two genuinely distinct items is worse than letting a
+    duplicate through, because it silently loses a cat she earned.
+    """
+    if _key(a) == _key(b):
+        return True
+    wa, wb = set(_content_words(a)), set(_content_words(b))
+    if len(wa) < 4 or len(wb) < 4:
+        return False
+    # "Replied to X" and "Replied again to X" are two messages, not one
+    # logged twice. A repeat marker on exactly one side means the second is
+    # deliberately recording another round of the same thing.
+    if {"again", "another", "second", "third"} & (wa ^ wb):
+        return False
+    # Jaccard over the whole description rather than containment against the
+    # shorter one, which merged pairs that only shared a subject.
+    #
+    # Scored against the full herd, 0.75 is the highest threshold that still
+    # catches real restatements ("Answer Payton..." / "Answered Payton...")
+    # without eating distinct work. It deliberately does NOT catch a heavy
+    # reword like the 2026-09-14 Allowed Amounts pair, which scores 0.500 -
+    # the same as "Installed Studio on candidate-sandbox" vs "Installed a
+    # batch of plugins on candidate-sandbox", which is two real installs.
+    # No word-overlap threshold separates those two cases, so the reword is
+    # left to the sweep, which can read both entries and judge. Losing a cat
+    # she earned is worse than letting a duplicate through.
+    return len(wa & wb) / len(wa | wb) >= 0.75
+
+
+def _is_duplicate(title: str, existing: "list[str]") -> bool:
+    """Whether this title describes work already in the given list."""
+    return any(_same_work(title, seen) for seen in existing)
 
 
 def _load() -> dict:
@@ -69,21 +138,24 @@ def _breed(total: int) -> tuple[str, str]:
     return BREEDS[min(total // 4, len(BREEDS) - 1)]
 
 
-def _recent_keys(data: dict, today: str, back: int = 14) -> set:
-    """Cat keys already awarded on the days just before today.
+def _recent_titles(data: dict, today: str, back: int = 14) -> list:
+    """Cat titles already awarded on the days just before today.
 
     Dedup used to be scoped to the current day only, so anything that leaked
     across the 6am boundary earned a second cat for work already counted.
+
+    Returns the titles rather than their keys, because the rewording check
+    needs the words back and a key cannot be un-hashed.
     """
     from datetime import datetime, timedelta
 
     day = datetime.strptime(today, "%Y-%m-%d")
-    keys = set()
+    titles = []
     for n in range(1, back + 1):
         prior = (day - timedelta(days=n)).strftime("%Y-%m-%d")
         for c in data["days"].get(prior, []):
-            keys.add(_key(c["for"]))
-    return keys
+            titles.append(c["for"])
+    return titles
 
 
 def sync_day_file() -> dict:
@@ -98,7 +170,7 @@ def sync_day_file() -> dict:
     data = _load()
     today = state.working_day()
     day = data["days"].setdefault(today, [])
-    seen = {_key(c["for"]) for c in day} | _recent_keys(data, today)
+    seen = [c["for"] for c in day] + _recent_titles(data, today)
 
     body = state.day_file()
     if not body:
@@ -118,7 +190,7 @@ def sync_day_file() -> dict:
         title = re.sub(r"\s*\(\d{2}:\d{2}\)\s*$", "", raw).strip()
         title = re.sub(r"\s*[-(]\s*(completed|contract sent).*$", "", title, flags=re.I).strip()
         title = re.sub(r"\s*\(\d{2}:\d{2} block\)\s*$", "", title).strip()
-        if not title or _key(title) in seen:
+        if not title or _is_duplicate(title, seen):
             continue
         data["total"] += 1
         emoji, breed = _breed(data["total"])
@@ -130,7 +202,7 @@ def sync_day_file() -> dict:
             "name": names.for_cat(title, coat.get("rare"), coats.hash_text(title)),
             **coats.traits_for(title),
         })
-        seen.add(_key(title))
+        seen.append(title)
         added += 1
 
     if added:
@@ -145,7 +217,7 @@ def earn(task_title: str) -> dict:
 
     # One cat per piece of work. A double-click on the same task used to award
     # two, which makes the pile a count of clicks rather than of work done.
-    if _key(task_title) in {_key(c["for"]) for c in day}:
+    if _is_duplicate(task_title, [c["for"] for c in day]):
         return {
             "cat": None,
             "duplicate": True,
@@ -193,12 +265,12 @@ def sync_completed(done_today: list[dict]) -> int:
     data = _load()
     today = state.working_day()
     day = data["days"].setdefault(today, [])
-    seen = {_key(c["for"]) for c in day}
+    seen = [c["for"] for c in day]
 
     added = 0
     for task in done_today:
         title = (task.get("title") or "").strip()
-        if not title or _key(title) in seen:
+        if not title or _is_duplicate(title, seen):
             continue
         data["total"] += 1
         emoji, breed = _breed(data["total"])
@@ -211,7 +283,7 @@ def sync_completed(done_today: list[dict]) -> int:
             "name": names.for_cat(title, coat.get("rare"), coats.hash_text(title)),
             **coats.traits_for(title),
         })
-        seen.add(_key(title))
+        seen.append(title)
         added += 1
 
     if added:

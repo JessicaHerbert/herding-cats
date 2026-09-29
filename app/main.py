@@ -1,12 +1,14 @@
 import asyncio
+import json
 import subprocess
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI, Request, WebSocket
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import cats, docs, mail, picks, rollover, setup, state, watch
+from . import (agent, cats, docs, mail, picks, rollover, runs, setup, state,
+               sweep, watch)
 
 if setup.needed():
     raise SystemExit(
@@ -61,6 +63,15 @@ async def get_mail():
         return {"waiting": await asyncio.to_thread(mail.waiting)}
     except Exception as exc:
         return {"waiting": [], "error": str(exc)[:200]}
+
+
+@app.post("/api/mail/archive")
+async def archive_mail(body: dict):
+    """Archive a thread so it stops showing up in the waiting list."""
+    thread_id = (body.get("id") or "").strip()
+    if not thread_id:
+        return {"ok": False, "error": "missing thread id"}
+    return await asyncio.to_thread(mail.archive, thread_id)
 
 
 @app.post("/api/open")
@@ -168,6 +179,144 @@ async def log_done(body: dict):
         return JSONResponse({"ok": False, "error": "text required"}, status_code=400)
     await asyncio.to_thread(state.append_done, text)
     return {"ok": True}
+
+
+@app.get("/api/runs")
+async def get_runs(limit: int = 50):
+    """The sweep run log: when each ran, what it cost, and on which models.
+
+    Separate from /api/sweep, which is only ever the most recent run.
+    """
+    rows = await asyncio.to_thread(runs.read, limit)
+    return {"runs": rows, "summary": await asyncio.to_thread(runs.summary, rows)}
+
+
+@app.get("/api/sweep")
+async def sweep_status():
+    """What the last sweep found, and whether another one is allowed yet."""
+    prev = sweep.last()
+    return {
+        "clock": prev.get("clock", ""),
+        "day": prev.get("day", ""),
+        "logged": prev.get("logged", 0),
+        "summary": prev.get("summary", ""),
+        "cooling": sweep.cooling(),
+    }
+
+
+# One sweep at a time. Two overlapping runs would both find the same evidence
+# and log it twice, since neither can see what the other is part way through
+# writing.
+_sweeping = asyncio.Lock()
+
+
+def _bound_port(request: Request) -> int:
+    """The port this server is actually listening on.
+
+    The agent is a separate process, so it needs a port that reaches the app
+    rather than whatever the browser happened to type. The server socket is
+    the authority; the request URL is the fallback for the case where the
+    scope carries no socket, and 8787 is the documented default behind that.
+    """
+    sock = request.scope.get("server")
+    if sock and sock[1]:
+        return int(sock[1])
+    return request.url.port or 8787
+
+
+@app.post("/api/sweep")
+async def run_sweep(request: Request, force: bool = False,
+                    trigger: str = "button"):
+    """Sweep for finished work and log whatever cleared the strong-evidence bar.
+
+    Streams as server-sent events rather than returning at the end, because a
+    run takes long enough that a silent button looks hung.
+    """
+    if _sweeping.locked():
+        return JSONResponse({"ok": False, "error": "a sweep is already running"},
+                            status_code=409)
+    left = sweep.cooling()
+    if left and not force:
+        return JSONResponse(
+            {"ok": False, "error": f"swept {left // 60}m ago", "cooling": left},
+            status_code=429)
+
+    # The port the agent is told to POST to. request.url.port is the port the
+    # browser used, which is the same thing in the normal case and the wrong
+    # thing behind anything that rewrites the host, so prefer the socket the
+    # server is actually bound to.
+    port = _bound_port(request)
+
+    async def stream():
+        async with _sweeping:
+            agent.reset()
+            lines: list[str] = []
+            spend: dict = {}
+            # Sync first here too, or a day-file line written before the sweep
+            # but not yet synced gets counted as something this run found.
+            await asyncio.to_thread(cats.sync_day_file)
+            before = len((await asyncio.to_thread(cats.herd)).get("today", []))
+            try:
+                async for event in agent.ask(
+                    sweep.prompt(port), sweep.allowed(), sweep.agents(),
+                    sweep.MODEL,
+                ):
+                    if event.get("type") == "text":
+                        lines.append(event["text"])
+                    elif event.get("type") == "usage":
+                        # Arrives once, on the CLI's final result event, and
+                        # exists nowhere else. Miss it and the run cannot be
+                        # priced afterwards.
+                        spend = event
+                    yield f"data: {json.dumps(event)}\n\n"
+            except Exception as exc:
+                # Record the failure too. A crashed run that logs nothing is
+                # exactly what a gap in the log should be traceable to, and
+                # it has usually already spent tokens by the time it dies.
+                await asyncio.to_thread(
+                    runs.record,
+                    trigger=trigger,
+                    logged=0,
+                    cost_usd=spend.get("cost_usd"),
+                    duration_ms=spend.get("duration_ms"),
+                    models=spend.get("models"),
+                    error=str(exc),
+                )
+                yield f"data: {json.dumps({'type': 'error', 'message': str(exc)[:300]})}\n\n"
+                return
+
+            # The last text block is the answer. Everything before it is the
+            # agent narrating its way through the sweep ("let me check X"),
+            # which joined together ran to thousands of characters of
+            # mid-sentence noise and made the tooltip unreadable.
+            summary = (lines[-1] if lines else "").strip()
+            # Sync before counting. /api/done writes the day file and stops
+            # there, and the cat is awarded by sync_day_file on the next state
+            # read. Counting straight after the run therefore saw seven fresh
+            # lines in the file and zero new cats, and reported "0 logged" on a
+            # sweep that had just found seven real completions.
+            await asyncio.to_thread(cats.sync_day_file)
+            # Count from the herd rather than from the reply. Counting reply
+            # lines looked simpler and was wrong: a run that logged nothing and
+            # explained why at length reported "13 logged", because thirteen is
+            # how many lines the explanation ran to. The herd is the record the
+            # count is actually about.
+            after = await asyncio.to_thread(cats.herd)
+            logged = max(0, len(after.get("today", [])) - before)
+            await asyncio.to_thread(sweep.record, logged, summary)
+            row = await asyncio.to_thread(
+                runs.record,
+                trigger=trigger,
+                logged=logged,
+                cost_usd=spend.get("cost_usd"),
+                duration_ms=spend.get("duration_ms"),
+                models=spend.get("models"),
+            )
+            yield f"data: {json.dumps({'type': 'swept', 'logged': logged, 'summary': summary, 'run': row})}\n\n"
+
+    return StreamingResponse(stream(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-store",
+                                      "X-Accel-Buffering": "no"})
 
 
 @app.websocket("/ws")

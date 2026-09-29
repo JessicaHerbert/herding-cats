@@ -46,6 +46,9 @@ class MailProvider(Protocol):
     def waiting(self, limit: int = 40) -> list[dict]:
         """Threads where the reply is yours to write."""
 
+    def archive(self, thread_id: str) -> dict:
+        """Take a thread out of the inbox: archive it and mark it read."""
+
 
 def completed_working_day(value: str) -> str:
     """A UTC completion instant as the local working day it belongs to.

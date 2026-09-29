@@ -8,15 +8,64 @@ project, and it survives a file being moved afterwards.
 import json
 import os
 import re
+import subprocess
 from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from . import state
+from . import paths, state
 
 PROJECTS = Path.home() / ".claude" / "projects"
 WRITE_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
 NOTION_TOOLS = {"mcp__notion__notion-update-page", "mcp__notion__notion-create-pages"}
+
+PLACEHOLDER = "Notion page (untitled in transcript)"
+
+# Titles are not in an update call, so unresolved ones are fetched live
+# through the ntn CLI and cached forever after: one subprocess per page ever
+# seen, capped per refresh so a backlog of old pages cannot stall the call.
+TITLE_FETCH_CAP = 10
+TITLE_TIMEOUT = 15
+
+
+def _titles_file() -> Path:
+    return paths.home() / "notion-titles.json"
+
+
+def _load_titles() -> dict:
+    try:
+        return json.loads(_titles_file().read_text())
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _save_titles(titles: dict) -> None:
+    try:
+        paths.ensure()
+        _titles_file().write_text(json.dumps(titles, sort_keys=True))
+    except OSError:
+        pass
+
+
+def _fetch_title(page_id: str) -> str:
+    """One page's title through the ntn CLI. Empty on any failure."""
+    try:
+        out = subprocess.run(
+            ["ntn", "api", f"/v1/pages/{page_id}"],
+            capture_output=True, text=True, timeout=TITLE_TIMEOUT,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    try:
+        props = json.loads(out.stdout).get("properties", {})
+    except json.JSONDecodeError:
+        return ""
+    for prop in props.values():
+        if prop.get("type") == "title":
+            return "".join(
+                part.get("plain_text", "") for part in prop.get("title", [])
+            )[:70]
+    return ""
 
 # Under auto mode most files are written through Bash rather than Edit/Write,
 # so a transcript can show a full day of work and no write-tool calls at all.
@@ -173,31 +222,47 @@ def touched(days: int = 7, limit: int = 40) -> dict:
                                 entry["project"] = project
 
                     elif name in NOTION_TOOLS:
-                        page, title = _notion_ref(args)
+                        page, title, parent_only = _notion_ref(args)
                         if not page:
                             continue
                         # Normalise so the same page edited from two projects
                         # is one document, not two.
                         key = page.replace("-", "").lower()
                         entry = notion.setdefault(key, {
-                            "path": page, "name": title, "project": project,
+                            "path": page,
+                            "name": title or PLACEHOLDER, "project": project,
                             "edits": 0, "last": "", "kind": "notion",
+                            # A creation call keys on the parent, and a parent
+                            # id resolves to the wrong title, so the cache
+                            # never fetches for one.
+                            "real_id": not parent_only,
                         })
                         entry["edits"] += 1
                         if when > entry["last"]:
                             entry["last"] = when
-                            if title != "Notion page":
+                            if title:
                                 entry["name"] = title
 
     # Notion pages are documents too, so they belong in the same list rather
-    # than as a footnote count.
+    # than as a footnote count. Names come from the transcript when the call
+    # carried one, then the cache, then a live fetch for the few the cache
+    # has never seen.
+    titles = _load_titles()
+    fetched = 0
     for page in notion.values():
         page["url"] = f"https://notion.so/{page['path'].replace('-', '')}"
-        if page["name"] == "Notion page":
-            # Titles are not recoverable from an update call, and fetching each
-            # one live would mean an API round trip per refresh. The link is
-            # what makes the row useful, so lean on that.
-            page["name"] = "Notion page (untitled in transcript)"
+        if page["name"] == PLACEHOLDER:
+            cached = titles.get(page["path"])
+            if cached:
+                page["name"] = cached
+            elif page.get("real_id") and fetched < TITLE_FETCH_CAP:
+                got = _fetch_title(page["path"])
+                fetched += 1
+                if got:
+                    titles[page["path"]] = got
+                    page["name"] = got
+    if fetched:
+        _save_titles(titles)
 
     docs = sorted([*found.values(), *notion.values()],
                   key=lambda d: d["last"], reverse=True)
@@ -215,13 +280,17 @@ def touched(days: int = 7, limit: int = 40) -> dict:
     }
 
 
-def _notion_ref(args: dict) -> tuple[str, str]:
+def _notion_ref(args: dict) -> tuple[str, str, bool]:
     """Pull a page id and a title out of a Notion tool call.
 
     Three shapes occur: page_id at the top level, page_id inside a JSON-encoded
     `data` string, and creation calls where the title is in pages[].properties.
+
+    The third value says whether the id belongs to the page's parent rather
+    than the page itself, which is the creation-call shape. A parent id
+    resolves to the wrong title, so the cache never fetches for one.
     """
-    title = "Notion page"
+    title = ""
 
     pages = args.get("pages")
     if isinstance(pages, list) and pages:
@@ -231,7 +300,7 @@ def _notion_ref(args: dict) -> tuple[str, str]:
         # A creation call has no page id yet, so key on the parent. The title
         # must not become the id, or the resulting URL points at nothing.
         parent = (args.get("parent") or {}).get("page_id", "")
-        return parent, title
+        return parent, title, True
 
     page_id = args.get("page_id")
     if not page_id:
@@ -244,7 +313,7 @@ def _notion_ref(args: dict) -> tuple[str, str]:
         elif isinstance(raw, dict):
             page_id = raw.get("page_id")
 
-    return (str(page_id) if page_id else ""), title
+    return (str(page_id) if page_id else ""), title, False
 
 
 def _relative(iso: str) -> str:

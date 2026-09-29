@@ -13,3 +13,12 @@ def waiting(limit: int = 40) -> list[dict]:
     if provider is None:
         return []
     return provider.waiting(limit)
+
+
+def archive(thread_id: str) -> dict:
+    from . import providers
+
+    provider = providers.mail()
+    if provider is None or not hasattr(provider, "archive"):
+        return {"ok": False, "error": "this mail backend cannot archive"}
+    return provider.archive(thread_id)

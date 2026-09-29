@@ -110,3 +110,16 @@ class GmailProvider:
 
         rows.sort(key=lambda r: r["sort"], reverse=True)
         return rows
+
+    def archive(self, thread_id: str) -> dict:
+        # Archiving removes INBOX; dropping UNREAD at the same time keeps the
+        # thread from resurfacing as unread in other views.
+        out = subprocess.run(
+            ["gws", "gmail", "users", "threads", "modify",
+             "--params", json.dumps({"userId": "me", "id": thread_id}),
+             "--json", json.dumps({"removeLabelIds": ["INBOX", "UNREAD"]}),
+             "--format", "json"],
+            capture_output=True, text=True, timeout=60,
+        )
+        ok = out.returncode == 0 and '"id"' in out.stdout
+        return {"ok": ok, "id": thread_id, "error": "" if ok else out.stderr[:200]}

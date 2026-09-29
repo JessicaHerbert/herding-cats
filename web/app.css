@@ -17,12 +17,29 @@ h1{font:500 22px/28px var(--font);color:var(--text2);letter-spacing:-.01em}
 .sub{font:400 12px/18px var(--font);color:var(--gray);margin-top:2px}
 .topr{display:flex;align-items:center;gap:10px}
 .clock{font:500 12px/1 var(--font);color:var(--gray);font-variant-numeric:tabular-nums}
-.refresh,#log-done,#add-task{background:var(--base03);border:1px solid var(--b2);border-radius:7px;
+.refresh,#log-done,#add-task,#sweep,#admin{background:var(--base03);border:1px solid var(--b2);border-radius:7px;
   color:var(--gray);cursor:pointer}
 .refresh{width:29px;height:29px;display:grid;place-items:center}
-#log-done,#add-task{font:500 12px/1 var(--font);padding:0 10px;height:29px}
-.refresh:hover,#log-done:hover,#add-task:hover{color:var(--text2);border-color:var(--b3)}
-.refresh:focus-visible,#log-done:focus-visible,#add-task:focus-visible{outline:none;box-shadow:0 0 0 2px var(--base01),0 0 0 4px var(--primary)}
+#log-done,#add-task,#sweep,#admin{font:500 12px/1 var(--font);padding:0 10px;height:29px}
+/* A link rather than a button, so cmd-click and the system handler still
+   work, but it sits in a flex row of buttons and has to line up with them.
+   The color is restated because the global link rule would otherwise paint
+   it primary blue and make it read as the active item in the row. */
+#admin{display:inline-flex;align-items:center;text-decoration:none;
+  color:var(--gray)}
+.refresh:hover,#log-done:hover,#add-task:hover,#sweep:hover,#admin:hover{color:var(--text2);border-color:var(--b3)}
+.refresh:focus-visible,#log-done:focus-visible,#add-task:focus-visible,#sweep:focus-visible,#admin:focus-visible{outline:none;box-shadow:0 0 0 2px var(--base01),0 0 0 4px var(--primary)}
+
+/* The sweep button spends most of its time mid-run, so its states carry more
+   weight than the other two. Running is primary-tinted and not clickable;
+   cooling is dimmed but still clickable, because the cooldown is advice. */
+#sweep.running{color:var(--primary);border-color:rgba(1,164,255,.4);cursor:default}
+#sweep.cooling{opacity:.5}
+#sweep:disabled{cursor:default}
+.sweepst{font:400 11px/1 var(--font);color:var(--gray);max-width:220px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sweepst.live{color:var(--primary)}
+.sweepst.bad{color:var(--orange)}
 .refresh.spin svg{animation:spin .7s linear}
 @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -249,6 +266,11 @@ h1{font:500 22px/28px var(--font);color:var(--text2);letter-spacing:-.01em}
 .msub a:hover{text-decoration:underline}
 .msnip{font:400 11.5px/16px var(--font);color:var(--gray);margin-top:2px;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.maildone{font:400 10px/14px var(--font);color:var(--gray);background:none;
+  border:1px solid var(--b1);border-radius:4px;padding:0 6px;cursor:pointer;
+  flex-shrink:0}
+.maildone:hover{color:var(--fg);border-color:var(--gray)}
+.maildone:disabled{opacity:.4;cursor:default}
 
 /* --- herd history --- */
 
