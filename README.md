@@ -43,9 +43,14 @@ actually works before saving anything, and writes the config file for you.
 ```
 
 The wizard asks for your timezone, the hour your day starts at, a task
-provider, and a mail provider. When it finishes it prints the path of the
-config file it wrote, which is `~/.herding-cats/config.toml` unless you have
-set `HERD_HOME`.
+provider, and a mail provider. After the day-start question it offers to look
+at what is installed on the machine and suggest a setup: it checks for
+Todoist, the gws CLI, task apps it cannot support, and the communication and
+meeting apps the optional skill sweep can read. Whatever it finds becomes the
+default on the provider menus, and every recommendation is still a question
+you answer rather than a decision made for you. When it finishes it prints the
+path of the config file it wrote, which is `~/.herding-cats/config.toml`
+unless you have set `HERD_HOME`.
 
 Two of its questions are worth knowing about before you answer them. The
 timezone it offers as a default comes from your system and can come back as an

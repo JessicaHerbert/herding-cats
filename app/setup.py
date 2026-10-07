@@ -19,6 +19,96 @@ from . import config, migrate, paths
 TASK_PROVIDER_MENU = {"1": "google", "2": "todoist", "3": "localfile"}
 MAIL_PROVIDER_MENU = {"1": "gmail", "2": "none"}
 
+APP_DIRS = (Path("/Applications"), Path.home() / "Applications")
+
+# App names the scan knows something about. Channels do not change the config
+# (the skill reads them, not the dashboard) but naming them tells a new user
+# what the sweep will and will not reach.
+UNSUPPORTED_TASK_APPS = {
+    "things": "Things", "things3": "Things", "reminders": "Apple Reminders",
+    "ticktick": "TickTick", "omnifocus": "OmniFocus",
+}
+CHANNEL_APPS = {
+    "slack": "Slack", "notion": "Notion", "grain": "Grain", "fathom": "Fathom",
+    "linear": "Linear", "superhuman": "Superhuman", "outlook": "Outlook",
+}
+
+
+def _installed_apps() -> set[str]:
+    found: set[str] = set()
+    for directory in APP_DIRS:
+        if not directory.is_dir():
+            continue
+        for entry in directory.glob("*.app"):
+            found.add(entry.stem.lower())
+    return found
+
+
+def _gws_ready() -> bool:
+    proc = subprocess.run(["gws", "auth", "status"], capture_output=True, timeout=30)
+    return proc.returncode == 0
+
+
+def _scan_device(output_fn) -> dict:
+    """Look at what is installed and suggest which providers to configure.
+
+    Detection is honest about its limits: a Google account used entirely in a
+    browser leaves no app to find, so gws authentication is the only real
+    signal for it, and an installed app says nothing about whether the person
+    actually uses it. Recommendations are defaults for the menus, not
+    decisions made for them.
+    """
+    apps = _installed_apps()
+    try:
+        gws = _gws_ready()
+    except Exception:
+        gws = False
+
+    task_default = ""
+    mail_default = ""
+
+    output_fn("\nWhat I found:\n")
+    if "todoist" in apps:
+        output_fn("  - Todoist is installed, and it is a supported task provider\n")
+        task_default = "todoist"
+    elif gws:
+        output_fn(
+            "  - The gws CLI is authenticated, so Google Tasks works as-is\n"
+        )
+        task_default = "google"
+    unsupported = sorted(UNSUPPORTED_TASK_APPS[a] for a in apps if a in UNSUPPORTED_TASK_APPS)
+    if unsupported:
+        output_fn(
+            f"  - {', '.join(unsupported)} installed, but there is no provider "
+            "for it. Task choices are Google Tasks, Todoist, or a local "
+            "markdown file\n"
+        )
+
+    if gws:
+        output_fn(
+            "  - Gmail works through the same gws CLI. Other mail providers "
+            "are not supported\n"
+        )
+        mail_default = "gmail"
+
+    channels = sorted(CHANNEL_APPS[a] for a in apps if a in CHANNEL_APPS)
+    if channels:
+        output_fn(
+            f"  - Also installed: {', '.join(channels)}. The dashboard only "
+            "configures tasks and mail, but the optional skill sweep reads "
+            "Slack, mail, Notion and call recordings, so these name what it "
+            "can see\n"
+        )
+
+    if not task_default:
+        output_fn(
+            "  - Nothing detected that points at a task provider. The choices "
+            "are Google Tasks, Todoist, or a local markdown file\n"
+        )
+    output_fn("")
+
+    return {"task_default": task_default, "mail_default": mail_default}
+
 
 def needed() -> bool:
     return not config.exists()
@@ -134,7 +224,7 @@ def _make_mail_provider(which: str, address: str):
     return None
 
 
-def run(input_fn=input, output_fn=print) -> Path:
+def run(input_fn=input, output_fn=print, scan_fn=_scan_device) -> Path:
     output_fn("Herding Cats setup\n")
 
     while True:
@@ -153,13 +243,29 @@ def run(input_fn=input, output_fn=print) -> Path:
     except ValueError:
         day_starts_at = 6
 
+    # The interview: what do you actually use? The scan offers device evidence
+    # first; the plain question covers everything a scan cannot see, like a
+    # Google account used only in a browser.
+    scan: dict = {}
+    if _ask(
+        input_fn, output_fn,
+        "Want me to look at what is installed on this machine and suggest a "
+        "setup? (y/n)",
+        "n",
+    ).lower().startswith("y"):
+        scan = scan_fn(output_fn)
+
     # Task provider: verify before persisting, re-ask on failure rather than
     # writing a config that cannot actually reach the account it names.
     task_provider = ""
     task_extra: dict = {}
     while True:
-        output_fn("Task provider:\n  1. Google Tasks\n  2. Todoist\n  3. Local markdown file\n")
-        choice = _ask(input_fn, output_fn, "Choice", "1")
+        output_fn(
+            "What do you use for tasks?\n"
+            "  1. Google Tasks\n  2. Todoist\n  3. Local markdown file\n"
+        )
+        default_task = {"google": "1", "todoist": "2"}.get(scan.get("task_default", ""), "1")
+        choice = _ask(input_fn, output_fn, "Choice", default_task)
         task_provider = TASK_PROVIDER_MENU.get(choice, "google")
 
         if task_provider == "google":
@@ -179,8 +285,12 @@ def run(input_fn=input, output_fn=print) -> Path:
     mail_provider = ""
     mail_address = ""
     while True:
-        output_fn("Mail provider:\n  1. Gmail\n  2. None\n")
-        choice = _ask(input_fn, output_fn, "Choice", "2")
+        output_fn(
+            "What do you use for email? Mail support is Gmail only, read "
+            "through the gws CLI.\n  1. Gmail\n  2. None\n"
+        )
+        default_mail = {"gmail": "1"}.get(scan.get("mail_default", ""), "2")
+        choice = _ask(input_fn, output_fn, "Choice", default_mail)
         mail_provider = MAIL_PROVIDER_MENU.get(choice, "none")
 
         if mail_provider == "gmail":
