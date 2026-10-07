@@ -50,8 +50,7 @@ function render() {
   renderTimeline();
   renderTasks();
   renderDone();
-  renderWatch();
-}
+  }
 
 // ---------- tiles ----------
 
@@ -364,28 +363,6 @@ function renderDone() {
           data-title="${esc(c.for)}" title="Undo" aria-label="Undo">↩</button>
       </div>`).join("")
     : '<div class="empty">Nothing logged yet.</div>';
-}
-
-// ---------- watching ----------
-
-function renderWatch() {
-  const items = data.watching || [];
-  $("watch-cc").textContent = items.length ? `${items.length} tracked` : "";
-  if (!items.length) {
-    $("watch").innerHTML = `<div class="empty">Nothing tracked. Ask Claude Code to add a
-      <code>## Watching</code> section to today's day file.</div>`;
-    return;
-  }
-  $("watch").innerHTML = items.map((w) => `<div class="watch ${w.status}">
-    <span class="dot"></span>
-    <div class="wbody">
-      <div class="wl">${w.url
-        ? `<a href="${esc(w.url)}" data-ext>${esc(w.label)}</a>`
-        : esc(w.label)}</div>
-      ${w.found ? `<div class="wf">${esc(w.found)}</div>` : ""}
-    </div>
-    ${w.checked ? `<span class="wc">${esc(w.checked)}</span>` : ""}
-  </div>`).join("");
 }
 
 // ---------- history ----------

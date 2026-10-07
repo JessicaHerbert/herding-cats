@@ -85,10 +85,9 @@ def append_done(text: str) -> None:
         return
     body = path.read_text()
     # Anchor on whichever section comes FIRST after "On the list", not on
-    # "## Decisions" specifically. The file grew a "## Watching" section
-    # between the two, and anchoring on Decisions quietly filed every
-    # completion at the bottom of the watchlist instead.
-    markers = [m for m in ("## Watching", "## Decisions", "## Open threads",
+    # "## Decisions" specifically, so an inserted "## For Claude" section
+    # still keeps completions out of it.
+    markers = [m for m in ("## Decisions", "## Open threads",
                            "## Notes", "## For Claude") if m in body]
     marker = min(markers, key=body.index) if markers else ""
     if marker:

@@ -83,12 +83,7 @@ h1{font:500 22px/28px var(--font);color:var(--text2);letter-spacing:-.01em}
 .dt{flex:1}
 .dtime{color:var(--gray);font-size:11px;font-variant-numeric:tabular-nums}
 
-.watch{display:flex;gap:9px;align-items:flex-start;padding:7px 0}
-.watch+.watch{border-top:1px solid var(--b1)}
-.watch .dot{width:6px;height:6px;border-radius:999px;background:var(--gray);
   flex-shrink:0;margin-top:6px}
-.watch.bad .dot{background:var(--orange)}
-.watch.ok .dot{background:var(--green)}
 .wbody{flex:1}
 .wl{font:400 12.5px/18px var(--font)}
 .wl a{color:var(--primary);text-decoration:none;border-bottom:1px solid rgba(1,164,255,.35)}

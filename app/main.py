@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request, WebSocket
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import cats, docs, mail, picks, rollover, setup, state, watch
+from . import cats, docs, mail, picks, rollover, setup, state
 
 if setup.needed():
     raise SystemExit(
@@ -35,7 +35,6 @@ async def get_state():
     if isinstance(out.get("tasks"), dict):
         await asyncio.to_thread(cats.sync_completed, out["tasks"].get("done_today", []))
     out["herd"] = await asyncio.to_thread(cats.herd)
-    out["watching"] = await asyncio.to_thread(watch.watching)
     return out
 
 
