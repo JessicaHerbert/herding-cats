@@ -1,9 +1,9 @@
 """The admin page and the way into it.
 
-Reaching the herd, the history and the run log used to mean finding the
-"see the herd" link inside a card partway down the dashboard. The header
-link is the front door now, so these pin that it exists, that it points
-somewhere real, and that every panel it promises is actually present.
+Reaching the herd and its history used to mean finding the "see the herd"
+link inside a card partway down the dashboard. The header link is the front
+door now, so these pin that it exists, that it points somewhere real, and
+that every panel it promises is actually present.
 """
 
 import re
@@ -31,13 +31,13 @@ def test_admin_link_opens_in_place():
 def test_admin_link_is_styled_with_the_other_header_controls():
     """It sits in a flex row of 29px buttons. Left to the default link
     styling it renders as blue underlined text at the wrong height."""
-    for rule in ("#log-done,#add-task,#sweep,#admin{", "#admin{"):
+    for rule in ("#log-done,#add-task,#admin{", "#admin{"):
         assert rule in CSS, f"missing style rule: {rule}"
     assert "text-decoration:none" in CSS
 
 
 def test_every_promised_panel_exists():
-    for tab in ("herd", "days", "runs"):
+    for tab in ("herd", "days"):
         assert f'data-tab="{tab}"' in ADMIN, f"no tab for {tab}"
         assert f'id="panel-{tab}"' in ADMIN, f"no panel for {tab}"
 
@@ -50,9 +50,8 @@ def test_tabs_and_panels_match_exactly():
 
 
 def test_only_one_panel_starts_visible():
-    assert ADMIN.count("data-panel hidden") == 2
+    assert ADMIN.count("data-panel hidden") == 1
 
 
 def test_selected_tab_is_remembered():
-    """Checking the runs usually means checking them twice."""
     assert "localStorage" in JS and "herd-tab" in JS

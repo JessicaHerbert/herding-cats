@@ -21,26 +21,6 @@ restating the day. The gap since the previous run is the window to search.
 **The dashboard runs on port 8787.** Every `/api/*` call in this file means
 `http://localhost:8787`. Port 9990 further down is a different app.
 
-**There is a catch-up button, and it runs this skill.** `POST /api/sweep` runs
-the evidence sweep below headless through the `claude` CLI and logs whatever
-clears the strong-evidence bar. Two things follow from that.
-
-**The scheduled sweep does NOT read this file.** Loading it cost about 6,400
-tokens a run to use two of its steps, so steps 4 and 4b are copied into the
-prompt in `app/sweep.py` instead. Editing the evidence rules here does not
-change what the hourly job does. Change both, or the two start judging by
-different rules.
-
-It holds a lock and a 15-minute cooldown, so a manual run started while the
-button is going will double-log the same evidence. Check `GET /api/sweep` for
-`cooling` before starting a by-hand sweep. A POST during an active run returns
-409; during the cooldown it returns 429 unless passed `?force=true`.
-
-When Jess asks for a catch-up and the dashboard is already up, prefer the
-button over doing it by hand. Doing it manually is for an open, for a window
-the button cannot express, or when the button has already run and something
-needs checking on top of it.
-
 **Finding when the last run was.** Nothing records it, so it has to be derived,
 and the obvious sources are both wrong. A bare `HH:MM` inside the day file's
 Notes or Decisions is prose rather than a marker, and one such line was read as
@@ -48,19 +28,9 @@ a run time on 2026-09-04, setting the window ten hours too wide. The day file
 also lags, because a completion logged through the dashboard UI does not append
 to it, so its newest line can sit hours behind the real herd.
 
-There are two records and they answer different questions, so read the one that
-matches what you are doing.
-
-`GET /api/sweep` is the record of the last full sweep, and it is the right
-window for a catch-up run. It returns `day`, `clock`, `logged`, `summary` and
-`cooling`. The summary carries what the previous run found and what it flagged
-as weak, which is worth reading before re-reporting the same thing.
-
-`GET /api/history` is the right source when a cat has been logged since that
-sweep, because completions logged through the dashboard or written into the day
-file do not update the sweep record. It returns `days`, newest first, each with
-a `day` and a list of `cats`. The newest completion is the last `at` on
-`days[0].cats`.
+`GET /api/history` is the record to read. It returns `days`, newest first, each
+with a `day` and a list of `cats`. The newest completion is the last `at` on
+`days[0].cats`, and that timestamp sets the catch-up window.
 
 Do NOT reach for `GET /api/state` here. Its `herd` key is a summary carrying
 only `today`, `total` and `days_kept`, with no cat records and no `at` at all,
@@ -329,6 +299,17 @@ where a commitment gets made. `list_meetings` returns a summary inline, which is
 usually enough; `search_in_transcripts` when looking for a specific topic. Fathom
 covers a different set of calls, so a clean miss in one is not absence.
 
+### Pylon
+
+Pylon is the customer record and a source of her work in its own right: agent
+and assist-agent fixes, note and reply activity on issues, and account or field
+changes all land here and nowhere else. Check issues updated or commented in
+the window (the MCP `search_issues` filters by date and assignee; free-text
+questions go to `POST /issues/search` with `search_text` per the Pylon section
+in the shared context). A support-motion she runs for one customer, such as
+fixing the assist agent and testing it on a ticket, is a completion for that
+customer, and the same motion run for a second customer is a second completion.
+
 ### Completeness gate - fill this before judging anything
 
 Every source in Step 4 gets a row in this table, and the sweep is not allowed
@@ -344,6 +325,7 @@ state each row) before producing any findings.
 | `/api/docs` | FULL list read, not an excerpt | Save to a file and parse it (`curl ... > /tmp/hc_docs.json` then jq/python). A `head -c` or a partial print of this feed is a truncated read: on 2026-09-28 the first 3,000 characters cut off half a day of work, including a mockup build and a copyedit pass |
 | ccvault | Searched for the window, results read | This is REQUIRED, not optional. It is the only source that names the parallel Claude sessions and says what each one was doing. On 2026-09-28 it was skipped, so the longevity article session and the pipeline session went unseen until Jess pointed at them |
 | computer-usage | Query run with epoch-converted `start_time`, and a known-hit control if zero rows | Per the epoch rule above |
+| Pylon | Issues touched in the window checked (updated/commented by her, and any agent or assist-agent work) | Was missing entirely until 2026-09-28, when the assist-agent fix and two tested duo tickets went unlogged until she named them |
 | Grain | `list_meetings` for the window | One call |
 
 Three failure shapes this gate exists to stop, all from real runs:
@@ -541,6 +523,13 @@ For anything that did not get done, offer to reschedule rather than leaving it t
   work done in another window or another session. A re-run that checks mail,
   Slack, and tasks alone will report a quiet hour that was not quiet. This has
   already happened.
+- **A support motion is one completion per customer, not chatter between
+  artifacts.** She runs a repeatable motion, deploy an agent or fix a setting
+  and answer the customer in the same channel, across several customers a day.
+  On 2026-09-28 the sweep caught the RoVR run but flattened the Alda and Kelci
+  replies into noise and never surfaced the Doromind run until she listed it.
+  Each customer's run of the motion logs its own cat, and Pylon activity
+  counts where the same work leaves its record there.
 - **No truncated read counts as a source.** The completeness gate above is the
   enforcement: every source needs either a walked cursor or a fully parsed
   list, and a partial read of a paginated API is not evidence of anything. On

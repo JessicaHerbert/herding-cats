@@ -44,32 +44,6 @@ body{padding:22px 26px 60px}
 .chip.rare{border-color:rgba(255,201,76,.45)}
 .chip .tt{color:var(--gray);font-size:10px}
 
-/* Sweep runs table. Numbers are tabular so a column of costs lines up and a
-   jump in spend is visible without reading each value. */
-.runs{width:100%;border-collapse:collapse;font:400 11.5px/1.45 var(--font)}
-.runs th{text-align:left;font:500 10.5px/1 var(--font);color:var(--gray);
-  padding:0 10px 7px 0;border-bottom:1px solid var(--b1);white-space:nowrap}
-.runs td{padding:6px 10px 6px 0;border-bottom:1px solid var(--b1);
-  vertical-align:baseline}
-.runs tr:last-child td{border-bottom:none}
-.runs .num{font-variant-numeric:tabular-nums;white-space:nowrap}
-.runs .dim{color:var(--gray)}
-.runs .day{font:500 11.5px/1.45 var(--font)}
-.trig{display:inline-block;padding:1px 6px;border-radius:999px;
-  font:500 10px/15px var(--font);border:1px solid var(--b1)}
-.trig.schedule{color:var(--gray)}
-.trig.button{color:var(--primary);border-color:rgba(122,162,247,.35)}
-.mbar{display:inline-flex;align-items:center;gap:4px}
-.mseg{height:8px;border-radius:2px;min-width:2px}
-.mseg.opus{background:#7aa2f7}
-.mseg.sonnet{background:#9ece6a}
-.mseg.haiku{background:#e0af68}
-.runerr{color:#f7768e}
-.runsum{display:flex;flex-wrap:wrap;gap:18px;margin-bottom:12px;
-  font:400 11.5px/1.5 var(--font)}
-.runsum b{font:600 13px/1.2 var(--font);font-variant-numeric:tabular-nums;
-  display:block}
-.runsum .lbl{color:var(--gray);font-size:10.5px}
 
 .tabs{display:flex;gap:4px;margin:0 0 14px;border-bottom:1px solid var(--b1)}
 .tab{appearance:none;background:none;border:none;cursor:pointer;
@@ -91,7 +65,6 @@ body{padding:22px 26px 60px}
 <nav class="tabs" id="tabs" role="tablist">
   <button class="tab" role="tab" data-tab="herd" aria-selected="true">The herd</button>
   <button class="tab" role="tab" data-tab="days" aria-selected="false">History</button>
-  <button class="tab" role="tab" data-tab="runs" aria-selected="false">Sweep runs</button>
 </nav>
 
 <main class="grid" id="panel-herd" data-panel>
@@ -110,13 +83,6 @@ body{padding:22px 26px 60px}
   <section class="card wide">
     <div class="ch"><span class="ct">Every day on record</span><span class="cc" id="days-cc"></span></div>
     <div id="days"></div>
-  </section>
-</main>
-
-<main class="grid" id="panel-runs" data-panel hidden>
-  <section class="card wide">
-    <div class="ch"><span class="ct">Sweep runs</span><span class="cc" id="runs-cc"></span></div>
-    <div id="runs"></div>
   </section>
 </main>
 

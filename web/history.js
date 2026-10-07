@@ -121,76 +121,6 @@ for (const slot of document.querySelectorAll("#days .dcat")) {
   mount(slot, catFor(slot.dataset.coat, Number(slot.dataset.seed), 44));
 }
 
-// --- Sweep runs -----------------------------------------------------------
-// What the hourly schedule actually did: when it ran, what it cost, and which
-// models it used. Cost lives only on the CLI's final result event, so this
-// table is the only place a past run can be priced from.
-
-const money = (v) =>
-  typeof v === "number" ? (v < 0.01 ? `$${v.toFixed(4)}` : `$${v.toFixed(2)}`) : "-";
-
-const secs = (ms) => (typeof ms === "number" ? `${Math.round(ms / 1000)}s` : "-");
-
-// A width-proportional bar per model, so an expensive run shows WHERE the
-// money went rather than only that it was expensive. The gatherers running on
-// haiku should be a sliver next to opus; if that flips, the split has broken.
-function modelBar(models) {
-  const entries = Object.entries(models || {})
-    .filter(([, u]) => typeof u.cost_usd === "number" && u.cost_usd > 0)
-    .sort((a, b) => b[1].cost_usd - a[1].cost_usd);
-  if (!entries.length) return '<span class="dim">-</span>';
-
-  const total = entries.reduce((s, [, u]) => s + u.cost_usd, 0);
-  const segs = entries.map(([name, u]) => {
-    const pct = Math.max(3, Math.round((u.cost_usd / total) * 46));
-    return `<span class="mseg ${esc(name)}" style="width:${pct}px"
-      title="${esc(name)} ${money(u.cost_usd)}"></span>`;
-  }).join("");
-  const names = entries.map(([n]) => n).join(" + ");
-  return `<span class="mbar">${segs}<span class="dim">${esc(names)}</span></span>`;
-}
-
-const r = await (await fetch("/api/runs?limit=60")).json();
-const rows = r.runs || [];
-const sum = r.summary || {};
-
-$("runs-cc").textContent = rows.length
-  ? `${rows.length} shown` : "no runs recorded yet";
-
-if (!rows.length) {
-  $("runs").innerHTML = `<div class="dim" style="font:400 11.5px/1.5 var(--font)">
-    Nothing yet. The hourly job records a row each time it runs, and the
-    catch-up button records one too.</div>`;
-} else {
-  const card = (t, label) => `<div><b>${t}</b><span class="lbl">${label}</span></div>`;
-  const today = sum.today || {}, week = sum.week || {};
-  $("runs").innerHTML = `
-    <div class="runsum">
-      ${card(today.runs ?? 0, "runs today")}
-      ${card(money(today.cost_usd), "spent today")}
-      ${card(today.cats ?? 0, "cats today")}
-      ${card(week.runs ?? 0, "runs this week")}
-      ${card(money(week.cost_usd), "spent this week")}
-      ${card(week.cats ?? 0, "cats this week")}
-    </div>
-    <table class="runs">
-      <thead><tr>
-        <th>When</th><th>Trigger</th><th>Cats</th>
-        <th>Cost</th><th>Models</th><th>Took</th><th></th>
-      </tr></thead>
-      <tbody>${rows.map((run) => `<tr>
-        <td class="num"><span class="day">${esc(run.clock || "")}</span>
-          <span class="dim">${esc(run.day || "")}</span></td>
-        <td><span class="trig ${esc(run.trigger || "")}">${esc(run.trigger || "?")}</span></td>
-        <td class="num">${run.logged ?? 0}</td>
-        <td class="num">${money(run.cost_usd)}</td>
-        <td>${modelBar(run.models)}</td>
-        <td class="num dim">${secs(run.duration_ms)}</td>
-        <td class="runerr">${esc(run.error || "")}</td>
-      </tr>`).join("")}</tbody>
-    </table>`;
-}
-
 // --- Tabs -----------------------------------------------------------------
 // All four views were stacked on one long page. Tabs split them without
 // changing what each one renders, and the counter tiles stay above the tabs
@@ -219,9 +149,8 @@ for (const t of TABS) {
   t.addEventListener("click", () => showTab(t.dataset.tab));
 }
 
-// Reopen on whichever tab was last used. Checking the runs log usually means
-// checking it more than once, and landing back on the herd every time is the
-// kind of small friction that stops it being looked at.
+// Reopen on whichever tab was last used. Landing back on the herd every time
+// is the kind of small friction that stops the other views being looked at.
 let initial = "herd";
 try { initial = localStorage.getItem(REMEMBER) || "herd"; } catch { /* ignore */ }
 showTab(initial);

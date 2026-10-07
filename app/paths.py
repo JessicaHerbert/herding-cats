@@ -27,16 +27,6 @@ def picks_file() -> Path:
     return home() / "picks.json"
 
 
-def runs_file() -> Path:
-    """The sweep run log: one JSON line per run, append only.
-
-    Separate from sweep.json, which holds only the most recent run and is
-    overwritten each time. This is the history: when a sweep ran, what it
-    cost, which models it used and how many cats it logged.
-    """
-    return home() / "runs.jsonl"
-
-
 def daily_dir() -> Path:
     return home() / "daily"
 

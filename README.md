@@ -319,28 +319,6 @@ servers that person has connected, and it will not run as written against a
 different setup. Read it as a worked example of the idea and rewrite the sweep
 for your own systems.
 
-### The catch up button
-
-The same sweep is wired to a button in the header, so you can run it without
-opening a conversation. It is narrower than asking the skill directly: it does
-the evidence sweep and nothing else, skipping the calendar, the collisions, and
-the todo list that the full open produces.
-
-Only strong evidence gets logged, and it gets logged without stopping to ask.
-Every cat lands in the Done panel with an undo beside it, which is what makes
-that safe. Weak evidence is listed at the end of the reply instead, because an
-unsent draft or a doc edited and never shared is invisible everywhere else and
-throwing it away silently would lose the signal the sweep exists to find.
-
-The button shows when it last ran and how many items it logged, and it declines
-to run again within fifteen minutes unless you confirm. Each run is a full
-Claude Code turn across several MCP servers, and a button with no cooldown gets
-pressed far more often than that work justifies.
-
-`app/sweep.py` holds the prompt and the list of tools the run is allowed to use.
-That list is worth reading before you trust the button, since it is the whole of
-what a background run can reach.
-
 ## Credits
 
 Cats by [cat-snacks](https://github.com/beaugunderson/cat-snacks). Names trained

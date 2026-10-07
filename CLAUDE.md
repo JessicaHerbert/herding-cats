@@ -16,7 +16,6 @@ as finished, and it is one person's real working copy rather than a template.
 | Path | What lives there |
 | --- | --- |
 | `app/` | The FastAPI backend. `main.py` is the routes, `state.py` the day logic, `cats.py` the herd, `config.py` and `paths.py` the settings and locations |
-| `app/sweep.py` | The catch-up button: the prompt it sends, the tools it grants, and the cooldown. `agent.py` is the bridge to the `claude` CLI it runs through |
 | `app/providers/` | The task and mail backends, with the protocols in `base.py` and resolution in `__init__.py` |
 | `web/` | The frontend, served as static files by `app.main` |
 | `skill/` | The optional Claude Code skill, excluded from the neutral-voice rules that apply to `app/` |
@@ -85,31 +84,16 @@ A POST to a path the app does not serve returns 405 rather than 404, because
 `StaticFiles` is mounted at `/` and answers GET only. Either status means the
 route is missing, not that the handler is wrong.
 
-## The catch-up button
-
-The button runs the herding-cats skill headless through the `claude` CLI,
-narrowed to the evidence sweep, and logs whatever cleared the strong-evidence
-bar. Three things about it are not guessable from the code.
-
-**A completion is counted from the herd, never from the reply.** Counting lines
-in the agent's answer was the first attempt and it reported "13 logged" on a run
-that logged nothing, because thirteen was how many lines the explanation ran to.
+## Cats and the day file
 
 **`/api/done` does not award a cat.** It writes the day file and stops, and
 `cats.sync_day_file()` awards the cat on the next state read. Anything counting
 cats straight after a write has to sync first, or it sees zero. That mistake
 made a sweep that found seven real completions report zero.
 
-**Permission patterns match on the command prefix, so narrow ones miss.**
-`Bash(curl -s -X POST http://127.0.0.1:8787/api/done:*)` looks precise and
-refuses the same request the moment the agent orders its flags differently or
-pipes the output. Three consecutive denials ended one run before it swept
-anything. `allowed()` grants `Bash(curl:*)` for that reason. The alternative
-considered and rejected was `--dangerously-skip-permissions`, which would let a
-background process run anything at all.
-
-Testing it means a scratch `HERD_HOME` and a spare port, never 8787, because a
-sweep against the real dashboard writes real cats into the real herd.
+Testing anything that writes cats means a scratch `HERD_HOME` and a spare port,
+never 8787, because a run against the real dashboard writes real cats into the
+real herd.
 
 ## Never commit
 
